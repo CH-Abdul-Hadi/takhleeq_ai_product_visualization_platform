@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import ProductCard from '../ui/ProductCard';
+import ProductCard from "../ui/ProductCard";
 import ProductCardSkeleton from "../ui/ProductCardSkeleton";
-import HeroSection from '../ui/Hero';
-import { productService } from '../../services/productService';
-import { useCart } from '../../hooks/useCart';
+import HeroSection from "../ui/Hero";
+import EqualizerLoader from "../ui/EqualizerLoader";
+import { productService } from "../../services/productService";
+import { useCart } from "../../hooks/useCart";
 
-
-const PRODUCTS_BASE_URL = import.meta.env.VITE_PRODUCTS_API_URL || 'http://localhost:8000';
+const PRODUCTS_BASE_URL =
+  import.meta.env.VITE_PRODUCTS_API_URL || "http://localhost:8000";
 
 const getProductImageUrl = (product) => {
   if (product.product_image) {
@@ -16,17 +17,27 @@ const getProductImageUrl = (product) => {
   return `${PRODUCTS_BASE_URL}/product/${product.product_id}/image`;
 };
 
-const getProductId = (product) => product?.product_id ?? product?.Product_id ?? product?.id;
+const getProductId = (product) =>
+  product?.product_id ?? product?.Product_id ?? product?.id;
 const getProductName = (product) =>
-  product?.Product_name ?? product?.product_name ?? product?.name ?? "Unnamed Product";
+  product?.Product_name ??
+  product?.product_name ??
+  product?.name ??
+  "Unnamed Product";
 const getProductDescription = (product) =>
-  product?.Product_details ?? product?.product_details ?? product?.description ?? "No description available.";
-const getProductPrice = (product) => Number(product?.price ?? product?.Price ?? 0);
-const getProductCategory = (product) => product?.category ?? product?.Category ?? "";
+  product?.Product_details ??
+  product?.product_details ??
+  product?.description ??
+  "No description available.";
+const getProductPrice = (product) =>
+  Number(product?.price ?? product?.Price ?? 0);
+const getProductCategory = (product) =>
+  product?.category ?? product?.Category ?? "";
 
 const LandingPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showIntroLoader, setShowIntroLoader] = useState(true);
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
@@ -50,6 +61,11 @@ const LandingPage = () => {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setShowIntroLoader(false), 900);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleAddToCart = (product) => {
     const productId = getProductId(product);
     addToCart({
@@ -61,11 +77,18 @@ const LandingPage = () => {
     });
   };
 
+  if (loading || showIntroLoader) {
+    return (
+      <div className="fixed inset-0 z-50 bg-backgroundColor flex flex-col items-center justify-center px-paddingLarge">
+        <EqualizerLoader size="lg" />
+      </div>
+    );
+  }
+
   return (
     <>
       <HeroSection />
       <div className="flex flex-col w-full pb-paddingLarge bg-backgroundColor">
-
         {/* Section 1: Pre-made Designs (commented: static/non-backend section) */}
         {/*
         <section className="py-paddingLarge px-paddingLarge max-w-[var(--maxWidthContainer)] mx-auto w-full">
@@ -120,24 +143,40 @@ const LandingPage = () => {
               <h2 className="text-textColorMain">
                 Print Your <span className="text-primaryColor">Reality</span>
               </h2>
-              <p className="text-textColorMuted text-fontSizeLg mt-marginSmall font-fontWeightLight">High-quality mockups of what you can create.</p>
+              <p className="text-textColorMuted text-fontSizeLg mt-marginSmall font-fontWeightLight">
+                High-quality mockups of what you can create.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-paddingLarge">
-              {loading ? (
-                Array.from({ length: 6 }).map((_, index) => (
-                  <ProductCardSkeleton key={`landing-product-skeleton-${index}`} />
-                ))
+              {loading || showIntroLoader ? (
+                <div className="col-span-full flex flex-col items-center justify-center py-12">
+                  <EqualizerLoader size="lg" />
+                  <p className="mt-4 text-textColorMuted text-sm uppercase tracking-[0.2em]">
+                    Loading products...
+                  </p>
+                </div>
               ) : (
                 products.map((product) => (
                   <ProductCard
                     key={getProductId(product)}
                     image={getProductImageUrl(product)}
                     title={getProductName(product)}
-                    tags={getProductCategory(product) ? [getProductCategory(product)] : []}
+                    tags={
+                      getProductCategory(product)
+                        ? [getProductCategory(product)]
+                        : []
+                    }
                     description={getProductDescription(product)}
                     price={getProductPrice(product)}
-                    onViewDetails={() => navigate(`/products/${getProductId(product)}`)}
+                    onViewDetails={() =>
+                      navigate(`/products/${getProductId(product)}`)
+                    }
+                    onOpenStudio={() =>
+                      navigate(`/studio?product=${getProductId(product)}`, {
+                        state: { selectedProductId: getProductId(product) },
+                      })
+                    }
                     onAddToCart={() => handleAddToCart(product)}
                   />
                 ))
@@ -168,7 +207,6 @@ const LandingPage = () => {
           </div>
         </section>
         */}
-
       </div>
     </>
   );

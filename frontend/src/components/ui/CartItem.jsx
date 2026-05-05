@@ -60,9 +60,10 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
         {/* Remove Button */}
         <button
           onClick={() => onRemove(item.id)}
-          className="p-1 hover:text-primaryColor transition-colors"
+          className="p-2 hover:text-primaryColor transition-colors"
+          aria-label={`Remove ${item.name} from cart`}
         >
-          <X size={16} className="text-textColorMuted" />
+          <X size={20} className="text-textColorMuted" />
         </button>
       </div>
     </div>

@@ -1,21 +1,34 @@
-import React, { useState } from 'react';
-import { Heart, Eye, ShoppingCart } from 'lucide-react';
+import React, { useState } from "react";
+import { Heart, Eye, ShoppingCart, Sparkles } from "lucide-react";
 
-const ProductCard = ({ 
-  image, 
-  title, 
-  tags = [], 
-  description, 
-  price, 
+const ProductCard = ({
+  image,
+  title,
+  tags = [],
+  description,
+  price,
   onAddToCart,
   onViewDetails,
+  onOpenStudio,
 }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const formattedPrice = `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;
 
   return (
-    <article className="group w-full max-w-[340px] mx-auto rounded-2xl border border-borderColor/70 bg-black overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-focusRingColor">
+    <article
+      className="group w-full h-full rounded-2xl border border-borderColor/70 bg-black overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-focusRingColor cursor-pointer"
+      onClick={onViewDetails}
+      onKeyDown={(event) => {
+        if ((event.key === "Enter" || event.key === " ") && onViewDetails) {
+          event.preventDefault();
+          onViewDetails();
+        }
+      }}
+      role={onViewDetails ? "button" : undefined}
+      tabIndex={onViewDetails ? 0 : undefined}
+      aria-label={onViewDetails ? `Open ${title} details` : undefined}
+    >
       <div className="relative bg-black p-4">
         <div className="h-[220px] rounded-xl bg-backgroundColor/70 border border-borderColor/40 flex items-center justify-center overflow-hidden">
           {!imageFailed && image ? (
@@ -36,13 +49,16 @@ const ProductCard = ({
         </div>
 
         <button
-          onClick={() => setIsFavorite(!isFavorite)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsFavorite(!isFavorite);
+          }}
           className="absolute top-6 right-6 h-9 w-9 inline-flex items-center justify-center rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 transition"
-          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
             size={16}
-            className={`transition-colors ${isFavorite ? 'fill-primaryColor text-primaryColor' : 'text-white/90'}`}
+            className={`transition-colors ${isFavorite ? "fill-primaryColor text-primaryColor" : "text-white/90"}`}
           />
         </button>
       </div>
@@ -77,10 +93,13 @@ const ProductCard = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {onViewDetails ? (
             <button
-              onClick={onViewDetails}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewDetails();
+              }}
               className="h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-borderColor text-textColorMain hover:bg-backgroundColor transition-colors text-sm font-medium"
               aria-label={`View ${title} details`}
             >
@@ -90,8 +109,26 @@ const ProductCard = ({
           ) : (
             <div />
           )}
+          {onOpenStudio ? (
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenStudio();
+              }}
+              className="h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-primaryColor/40 text-primaryColor hover:bg-primaryColor/10 transition-colors text-sm font-medium"
+              aria-label={`Open ${title} in studio`}
+            >
+              <Sparkles size={16} />
+              Studio
+            </button>
+          ) : (
+            <div />
+          )}
           <button
-            onClick={onAddToCart}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddToCart();
+            }}
             className="h-11 inline-flex items-center justify-center gap-2 rounded-lg bg-primaryColor text-black hover:opacity-90 transition text-sm font-semibold"
             aria-label={`Add ${title} to cart`}
           >
