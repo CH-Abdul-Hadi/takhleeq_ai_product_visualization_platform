@@ -36,7 +36,16 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
       </div>
 
       {/* Quantity and Remove */}
-      <div className="flex flex-col items-end gap-2">
+      <div className="relative flex items-center justify-center min-w-[120px]">
+        {/* Remove Button */}
+        <button
+          onClick={() => onRemove(item.id)}
+          className="absolute -top-1 right-0 p-2 rounded-full text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          aria-label={`Remove ${item.name} from cart`}
+        >
+          <X size={20} />
+        </button>
+
         {/* Quantity Selector */}
         <div className="flex items-center gap-1 bg-black border border-borderColor rounded-lg p-1">
           <button
@@ -56,15 +65,6 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
             <Plus size={16} className="text-textColorMain" />
           </button>
         </div>
-
-        {/* Remove Button */}
-        <button
-          onClick={() => onRemove(item.id)}
-          className="p-2 hover:text-primaryColor transition-colors"
-          aria-label={`Remove ${item.name} from cart`}
-        >
-          <X size={20} className="text-textColorMuted" />
-        </button>
       </div>
     </div>
   );
