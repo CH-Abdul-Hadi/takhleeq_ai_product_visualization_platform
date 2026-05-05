@@ -175,7 +175,7 @@ const CategoriesPage = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {loading ? (
               Array.from({ length: 8 }).map((_, index) => (
                 <ProductCardSkeleton key={`categories-product-skeleton-${index}`} />
@@ -194,6 +194,11 @@ const CategoriesPage = () => {
                   description={getProductDescription(product)}
                   price={getProductPrice(product)}
                   onViewDetails={() => navigate(`/products/${getProductId(product)}`)}
+                  onOpenStudio={() =>
+                    navigate(`/studio?product=${getProductId(product)}`, {
+                      state: { selectedProductId: getProductId(product) },
+                    })
+                  }
                   onAddToCart={() => handleAddToCart(product)}
                 />
               ))

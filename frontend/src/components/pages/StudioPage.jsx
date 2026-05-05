@@ -4,17 +4,44 @@ import {
   CheckCircle,
   ChevronDown,
   Download,
+  Search,
   Loader2,
   Sparkles,
+  X,
 } from "lucide-react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { aiDesignService } from "../../services/aiDesignService";
 import { productService } from "../../services/productService";
+import EqualizerLoader from "../ui/EqualizerLoader";
 
 const PRODUCTS_BASE_URL =
   import.meta.env.VITE_PRODUCTS_API_URL || "http://localhost:8000";
 const COLOR_PALETTE = [
   { name: "Black", value: "black", swatch: "#0A0A0A" },
+  { name: "White", value: "white", swatch: "#FFFFFF" },
+  { name: "Charcoal", value: "charcoal", swatch: "#36454F" },
+  { name: "Slate", value: "slate", swatch: "#64748B" },
+  { name: "Gray", value: "gray", swatch: "#9CA3AF" },
+  { name: "Silver", value: "silver", swatch: "#D1D5DB" },
   { name: "Yellow", value: "yellow", swatch: "#EBB924" },
+  { name: "Orange", value: "orange", swatch: "#F97316" },
+  { name: "Coral", value: "coral", swatch: "#FB7185" },
+  { name: "Red", value: "red", swatch: "#EF4444" },
+  { name: "Maroon", value: "maroon", swatch: "#7F1D1D" },
+  { name: "Pink", value: "pink", swatch: "#EC4899" },
+  { name: "Purple", value: "purple", swatch: "#8B5CF6" },
+  { name: "Violet", value: "violet", swatch: "#6D28D9" },
+  { name: "Blue", value: "blue", swatch: "#3B82F6" },
+  { name: "Navy", value: "navy", swatch: "#1E3A8A" },
+  { name: "Sky", value: "sky", swatch: "#0EA5E9" },
+  { name: "Teal", value: "teal", swatch: "#14B8A6" },
+  { name: "Emerald", value: "emerald", swatch: "#10B981" },
+  { name: "Green", value: "green", swatch: "#22C55E" },
+  { name: "Olive", value: "olive", swatch: "#4D7C0F" },
+  { name: "Lime", value: "lime", swatch: "#84CC16" },
+  { name: "Brown", value: "brown", swatch: "#78350F" },
+  { name: "Beige", value: "beige", swatch: "#D6D3C9" },
+  { name: "Cream", value: "cream", swatch: "#FFF7D6" },
 ];
 
 const DropdownSection = ({ title, isOpen, onToggle, children }) => (
@@ -37,6 +64,8 @@ const DropdownSection = ({ title, isOpen, onToggle, children }) => (
 );
 
 const StudioPage = () => {
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [prompt, setPrompt] = useState("");
   const [productType, setProductType] = useState("t-shirt");
   const [productColor, setProductColor] = useState("black");
@@ -49,6 +78,14 @@ const StudioPage = () => {
   const [productsLoading, setProductsLoading] = useState(true);
   const [generatedDesign, setGeneratedDesign] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const preselectedProductId = useMemo(
+    () =>
+      Number(searchParams.get("product")) ||
+      Number(location.state?.selectedProductId),
+    [location.state?.selectedProductId, searchParams]
+  );
 
   useEffect(() => {
     productService
@@ -56,11 +93,18 @@ const StudioPage = () => {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setProducts(list);
-        if (list.length > 0) setSelectedProduct(list[0]);
+        if (list.length > 0) {
+          const preselected =
+            list.find((item) => item.product_id === preselectedProductId) || list[0];
+          setSelectedProduct(preselected);
+          setProductType(
+            (preselected.category || "t-shirt").toLowerCase()
+          );
+        }
       })
       .catch(() => {})
       .finally(() => setProductsLoading(false));
-  }, []);
+  }, [preselectedProductId]);
 
   const getDesignImageSrc = (b64) => {
     if (!b64) return null;
@@ -82,6 +126,16 @@ const StudioPage = () => {
       "#0A0A0A",
     [productColor]
   );
+
+  const filteredProducts = useMemo(() => {
+    const search = productSearch.trim().toLowerCase();
+    if (!search) return products;
+    return products.filter((product) =>
+      `${product.Product_name || ""} ${product.category || ""}`
+        .toLowerCase()
+        .includes(search)
+    );
+  }, [products, productSearch]);
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !selectedProduct) return;
@@ -143,7 +197,7 @@ const StudioPage = () => {
     ? getDesignImageSrc(
         generatedDesign.final_product || generatedDesign.design_from_gemini
       )
-    : null;
+    : getProductImageSrc(selectedProduct);
 
   return (
     <div className="min-h-screen bg-black text-textColorMain">
@@ -157,16 +211,18 @@ const StudioPage = () => {
 
             <div className="mt-6 rounded-borderRadiusMd border border-borderColor bg-black min-h-[520px] p-3">
               {isGenerating ? (
-                <div className="h-full min-h-[496px] flex flex-col items-center justify-center gap-3 text-textColorMuted">
-                  <Loader2 size={32} className="animate-spin" />
-                  <span>Generating design...</span>
+                <div className="h-full min-h-[496px] flex flex-col items-center justify-center gap-4 text-textColorMuted">
+                  <EqualizerLoader size="lg" />
+                  <span className="text-sm tracking-wide uppercase text-textColorMuted">
+                    Generating design...
+                  </span>
                 </div>
               ) : displayImageSrc ? (
                 <div className="relative h-full min-h-[496px] w-full overflow-hidden rounded-borderRadiusMd">
                   <img
                     src={displayImageSrc}
-                    alt="Generated Design"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    alt={generatedDesign ? "Generated Design" : "Selected Product"}
+                    className={`absolute inset-0 h-full w-full ${generatedDesign ? "object-cover" : "object-contain p-6"}`}
                   />
                 </div>
               ) : (
@@ -263,39 +319,23 @@ const StudioPage = () => {
               ) : !products.length ? (
                 <p className="text-sm text-textColorMuted">No products available.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {products.map((product) => {
-                    const isSelected =
-                      selectedProduct?.product_id === product.product_id;
-                    return (
-                      <button
-                        key={product.product_id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setProductType(
-                            (product.category || productType || "t-shirt").toLowerCase()
-                          );
-                        }}
-                        className={`p-2 rounded-lg border transition ${
-                          isSelected
-                            ? "border-primaryColor bg-primaryColor/10"
-                            : "border-borderColor hover:border-primaryColor/40"
-                        }`}
-                      >
-                        <div className="h-20 bg-backgroundColor rounded-md overflow-hidden flex items-center justify-center">
-                          <img
-                            src={getProductImageSrc(product)}
-                            alt={product.Product_name}
-                            className="w-full h-full object-contain p-2"
-                          />
-                        </div>
-                        <p className="text-xs mt-2 text-left line-clamp-1">
-                          {product.Product_name}
-                        </p>
-                      </button>
-                    );
-                  })}
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsProductModalOpen(true)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-borderColor hover:border-primaryColor/50 px-3 py-2.5 text-sm transition"
+                  >
+                    <Search size={16} />
+                    Search and select product
+                  </button>
+                  {selectedProduct && (
+                    <div className="rounded-lg border border-primaryColor/30 bg-primaryColor/10 p-3">
+                      <p className="text-xs uppercase tracking-wider text-primaryColor">Selected</p>
+                      <p className="mt-1 text-sm text-textColorMain line-clamp-1">
+                        {selectedProduct.Product_name}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </DropdownSection>
@@ -307,7 +347,7 @@ const StudioPage = () => {
                 setOpenDropdown(openDropdown === "palette" ? "" : "palette")
               }
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 {COLOR_PALETTE.map((color) => {
                   const isActive = productColor === color.value;
                   return (
@@ -315,7 +355,7 @@ const StudioPage = () => {
                       key={color.value}
                       type="button"
                       onClick={() => setProductColor(color.value)}
-                      className={`h-10 w-10 rounded-lg border-2 transition ${
+                      className={`h-9 w-9 rounded-md border-2 transition ${
                         isActive
                           ? "border-primaryColor scale-105"
                           : "border-borderColor hover:border-primaryColor/50"
@@ -390,6 +430,76 @@ const StudioPage = () => {
           </aside>
         </div>
       </section>
+
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl bg-black border border-borderColor rounded-borderRadiusLg shadow-boxShadowMedium">
+            <div className="flex items-center justify-between border-b border-borderColor px-4 py-3">
+              <h3 className="text-lg font-semibold">Select Product</h3>
+              <button
+                type="button"
+                onClick={() => setIsProductModalOpen(false)}
+                className="p-2 rounded-md hover:bg-backgroundColor transition"
+                aria-label="Close product selector"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-textColorMuted" />
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  placeholder="Search products by name or category..."
+                  className="w-full bg-backgroundColor border border-borderColor rounded-borderRadiusMd pl-9 pr-3 py-2 text-sm"
+                />
+              </div>
+              <div className="max-h-[420px] overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {filteredProducts.map((product) => (
+                  <button
+                    key={product.product_id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setProductType(
+                        (product.category || productType || "t-shirt").toLowerCase()
+                      );
+                      setSearchParams({ product: String(product.product_id) });
+                      setIsProductModalOpen(false);
+                    }}
+                    className={`text-left rounded-lg border p-3 transition ${
+                      selectedProduct?.product_id === product.product_id
+                        ? "border-primaryColor bg-primaryColor/10"
+                        : "border-borderColor hover:border-primaryColor/50"
+                    }`}
+                  >
+                    <div className="h-24 rounded-md overflow-hidden bg-backgroundColor flex items-center justify-center">
+                      <img
+                        src={getProductImageSrc(product)}
+                        alt={product.Product_name}
+                        className="w-full h-full object-contain p-2"
+                      />
+                    </div>
+                    <p className="mt-2 text-sm text-textColorMain line-clamp-1">
+                      {product.Product_name}
+                    </p>
+                    <p className="text-xs text-textColorMuted line-clamp-1">
+                      {product.category || "General"}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              {!filteredProducts.length && (
+                <p className="text-sm text-textColorMuted text-center py-8">
+                  No products match your search.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
