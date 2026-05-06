@@ -34,7 +34,7 @@ external_client = AsyncOpenAI(
 )
 
 model = OpenAIChatCompletionsModel(
-    model="gemini-2.5-flash",
+    model="gemini-1.5-flash",
     openai_client=external_client,
 )
 
@@ -160,18 +160,14 @@ design_agent = Agent(
 print("Loaded Instructions Length:", len(dynamic_instruction))
 
 # ---------------------------------------------------------------------------
-# Public helper
+# Public helper with robust fallback
 # ---------------------------------------------------------------------------
 
 async def generate_design(prompt: str, reference_image: str | None = None):
-    """Run the design agent and return the RunResult.
-
-    Args:
-        prompt: Text description of the desired design.
-        reference_image: Optional base64-encoded reference image.
-
-    Returns:
-        The RunResult from the agent.
+    """Run the design agent with automatic fallback if AI reasoning is rate-limited.
+    
+    This ensures that even if Gemini hits a 429/quota limit, the user 
+    still gets a high-quality design via Pollinations.
     """
     user_message = f"Generate a design based on this description: {prompt}"
 
@@ -183,8 +179,52 @@ async def generate_design(prompt: str, reference_image: str | None = None):
             f"Ensure you pass this reference ID to the generate_design_image tool."
         )
 
-    result = await Runner.run(design_agent, input=user_message)
-    return result
+    try:
+        # Attempt to run the full Agent reasoning (supports multiple turns/tools)
+        # We use a 2-retry policy for 429s
+        for attempt in range(2):
+            try:
+                result = await Runner.run(design_agent, input=user_message)
+                return result
+            except Exception as e:
+                if ("429" in str(e) or "quota" in str(e).lower()) and attempt == 0:
+                    print(f"Gemini Rate Limited. Waiting 2 seconds and retrying attempt {attempt+1}...")
+                    await asyncio.sleep(2)
+                    continue
+                raise e
+                
+    except Exception as exc:
+        # FALLBACK: If Gemini reasoning fails entirely (quota exhausted), 
+        # we generate the image directly using a refined prompt template.
+        print(f"CRITICAL: Gemini Agent failed ({exc}). Falling back to Direct Pollinations generation.")
+        
+        refined_prompt = (
+            f"A professional, high-quality design of: {prompt}. "
+            "Isolated on a clean background, vibrant colors, sharp detail, "
+            "vector style, suitable for high-definition printing on apparel and products."
+        )
+        
+        # Call the pollinations helper directly
+        image_b64 = await generate_image_via_gemini(refined_prompt)
+        
+        if not image_b64:
+            raise RuntimeError(f"Both Gemini Agent and Pollinations Fallback failed: {exc}")
+            
+        # Mock a RunResult-like object so the coordinator doesn't break
+        from dataclasses import dataclass
+        @dataclass
+        class MockToolOutput:
+            output: str
+        @dataclass
+        class MockResult:
+            final_output: str
+            new_items: list
+        
+        ref_id = store_image(image_b64)
+        return MockResult(
+            final_output=f"IMAGE_GENERATED:{ref_id}",
+            new_items=[MockToolOutput(output=f"IMAGE_GENERATED:{ref_id}")]
+        )
 
 
 if __name__ == "__main__":

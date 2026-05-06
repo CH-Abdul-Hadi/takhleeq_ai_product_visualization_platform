@@ -236,11 +236,21 @@ async def ai_center_create(
     except Exception as exc:
         error_msg = str(exc)
         logger.error("AI Center create failed: %s", error_msg)
+        
+        # Handle OpenRouter/Gemini safety filter errors
         if "'tuple' object has no attribute 'choices'" in error_msg or "filtered" in error_msg.lower():
             raise HTTPException(
                 status_code=400, 
                 detail="Your design prompt triggered the AI safety filters. Please adjust your description to avoid sensitive, violent, or inappropriate content and try again."
             )
+            
+        # Handle Gemini API Rate Limit (429)
+        if "429" in error_msg or "Quota exceeded" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail="You have hit the Google Gemini API speed limit (15 requests per minute). Please wait 15 seconds and try generating your design again."
+            )
+            
         raise HTTPException(status_code=500, detail=error_msg)
 
 

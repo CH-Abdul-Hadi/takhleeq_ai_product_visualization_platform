@@ -147,7 +147,7 @@ services:
     env_file:
       - .env
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TAKHLEEQ_AI_CHATBOT_GEMINI_API_KEY=${TAKHLEEQ_AI_CHATBOT_GEMINI_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
     restart: on-failure
 
