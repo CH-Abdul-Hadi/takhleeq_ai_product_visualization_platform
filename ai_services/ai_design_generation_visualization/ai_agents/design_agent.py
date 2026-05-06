@@ -10,17 +10,15 @@ large base64 strings through the LLM context window.
 
 from __future__ import annotations
 
-import re
 import uuid
 import asyncio
 import base64
 import os
 import sys
-import re as _re
 from openai import AsyncOpenAI
 from agents import Agent, Runner, function_tool, set_tracing_disabled
 from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
-
+from google import genai
 import config
 
 # Disable tracing (no direct OpenAI key for trace uploading)
@@ -30,20 +28,13 @@ set_tracing_disabled(True)
 # Shared OpenRouter client & model (imported by other agents)
 # ---------------------------------------------------------------------------
 
-openrouter_client = AsyncOpenAI(
-    base_url=config.OPENROUTER_BASE_URL,
-    api_key=config.OPENROUTER_API_KEY,
-)
-
-
-
 external_client = AsyncOpenAI(
-    base_url=config.OPENROUTER_BASE_URL,
-    api_key=config.OPENROUTER_API_KEY,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    api_key=config.GEMINI_API_KEY,
 )
 
 model = OpenAIChatCompletionsModel(
-    model=config.OPENROUTER_MODEL,
+    model="gemini-2.5-flash",
     openai_client=external_client,
 )
 
@@ -72,94 +63,42 @@ def peek_image(ref_id: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Helper — generate image via OpenRouter chat completions
+# Helper — generate image via Pollinations.ai (Free, No API Key)
 # ---------------------------------------------------------------------------
 
-async def generate_image_via_openrouter(prompt: str, image_b64: str | None = None) -> str | None:
-    """Call an OpenRouter image model via chat completions and return base64.
-
-    OpenRouter image models are accessed through the normal chat completions
-    endpoint.  The response contains the image in the ``message.images`` field
-    as a data-URL (data:image/png;base64,...), NOT in ``message.content``.
-
+async def generate_image_via_gemini(prompt: str, image_b64: str | None = None) -> str | None:
+    """Generate image using Pollinations.ai.
+    
+    We are keeping the function name `generate_image_via_gemini` so that we 
+    don't have to update all imports in coordinator.py, but this now uses Pollinations.
+    
     Returns:
-        Base64-encoded image string (without the data-URL prefix), or None.
+        Base64-encoded image string, or None.
     """
-    if image_b64:
-        # Use image-to-image model
-        model = config.FLUX_IMAGE_MODEL
-        def _format_image_url(b64_data: str) -> str:
-            if b64_data.startswith("data:"):
-                return b64_data
-            return f"data:image/jpeg;base64,{b64_data}"
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": _format_image_url(image_b64)}}
-            ]
-        }]
-        print(f"DEBUG: Using model {model} for image generation")
-        try:
-            response = await external_client.chat.completions.create(
-                model=model,
-                messages=messages,
-            )
-            msg = response.choices[0].message
-            content = msg.content
-            if content:
-                match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
-                if match:
-                    return match.group(1)
-                stripped = content.strip()
-                if len(stripped) > 200 and re.match(r"^[A-Za-z0-9+/=\s]+$", stripped):
-                    return stripped.replace("\n", "").replace(" ", "")
-            return None
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return None
-    else:
-        # Use text-to-image model (Flux)
-        model = config.FLUX_IMAGE_MODEL
-        import aiohttp
-        headers = {
-            "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-        }
+    import aiohttp
+    import urllib.parse
+    
+    print(f"DEBUG: Using Pollinations.ai for image generation (No API Key Required)")
+    try:
+        # We append a random seed so it generates a fresh image even for identical prompts
+        import random
+        seed = random.randint(1, 9999999)
+        encoded_prompt = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true&seed={seed}"
         
-        print(f"DEBUG: Using native OpenRouter payload for {model}")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(config.OPENROUTER_BASE_URL + "/chat/completions", headers=headers, json=payload) as resp:
-                    resp_json = await resp.json()
-                    if "choices" in resp_json and len(resp_json["choices"]) > 0:
-                        msg = resp_json["choices"][0].get("message", {})
-                        images = msg.get("images")
-                        if images and len(images) > 0:
-                            url = images[0].get("image_url", {}).get("url", "")
-                            if url:
-                                match = re.search(r"base64,(.+)", url)
-                                if match:
-                                    return match.group(1)
-                        content = msg.get("content", "")
-                        if content:
-                            match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
-                            if match:
-                                return match.group(1)
-                            stripped = content.strip()
-                            if len(stripped) > 200 and re.match(r"^[A-Za-z0-9+/=\s]+$", stripped):
-                                return stripped.replace("\n", "").replace(" ", "")
-                    print(f"DEBUG Error - OpenRouter returned {resp_json}")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    image_bytes = await resp.read()
+                    import base64
+                    return base64.b64encode(image_bytes).decode('utf-8')
+                else:
+                    print(f"Pollinations Error: Status {resp.status}")
                     return None
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return None
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +133,7 @@ async def generate_design_image(prompt: str, reference_image_id: str | None = No
         ref_id = reference_image_id.split(':')[-1]
         image_b64 = peek_image(ref_id)
 
-    result = await generate_image_via_openrouter(full_prompt, image_b64=image_b64)
+    result = await generate_image_via_gemini(full_prompt, image_b64=image_b64)
     if not result:
         return "ERROR: Image generation failed — no image data was returned."
 

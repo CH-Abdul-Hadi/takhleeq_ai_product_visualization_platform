@@ -17,7 +17,6 @@ import re
 import config
 from ai_agents.design_agent import (
     generate_design,
-    generate_image_via_openrouter,
     get_image,
     external_client,
 )
@@ -132,7 +131,8 @@ async def run_full_pipeline(
         )
 
     # ── Step 2: Generate product mockup with design applied ────────────
-    #   Using the image-to-image model for accurate design application.
+    #   Using the text-to-image model for design application since image inputs
+    #   aren't natively supported by this endpoint.
     viz_prompt = (
         f"CRITICAL INSTRUCTION: Do NOT hallucinate or generate a new design pattern. "
         f"You MUST exactly apply the existing requested design ({prompt}) onto this {product_color} {product_type}. "
@@ -142,22 +142,9 @@ async def run_full_pipeline(
         f"white background, high quality commercial product shot."
     )
 
-    viz_response = await asyncio.wait_for(
-        external_client.chat.completions.create(
-            model=config.GEMINI_IMAGE_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": viz_prompt},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(design_image)}},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(product_image_b64)}}
-                ]
-            }],
-        ),
-        timeout=120,
-    )
-
-    visualization_image = _extract_b64_from_response(viz_response)
+    from ai_agents.design_agent import generate_image_via_gemini
+    
+    visualization_image = await generate_image_via_gemini(viz_prompt)
     if not visualization_image:
         raise RuntimeError("Visualization step failed — no image returned.")
 
@@ -165,7 +152,7 @@ async def run_full_pipeline(
     enhance_prompt = (
         f"CRITICAL INSTRUCTION: Do NOT hallucinate, generate new designs, or alter the core pattern. "
         f"This is STRICTLY a color and lighting enhancement task. "
-        f"Enhance the provided premium, high-quality product mockup of a {product_color} {product_type} "
+        f"Enhance the premium, high-quality product mockup of a {product_color} {product_type} "
         f"with the design: {prompt}. "
         f"The design colors must be vibrant and complement the {product_color} product perfectly. "
         f"Improve color harmony, contrast, and make it vivid and eye-catching without changing the design itself. "
@@ -174,21 +161,7 @@ async def run_full_pipeline(
         f"Ultra high quality, 4K commercial product shot."
     )
 
-    enhance_response = await asyncio.wait_for(
-        external_client.chat.completions.create(
-            model=config.FLUX_IMAGE_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": enhance_prompt},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(visualization_image)}}
-                ]
-            }],
-        ),
-        timeout=120,
-    )
-
-    enhanced_image = _extract_b64_from_response(enhance_response)
+    enhanced_image = await generate_image_via_gemini(enhance_prompt)
     if not enhanced_image:
         raise RuntimeError("Color enhancement step failed — no image returned.")
 
@@ -269,22 +242,9 @@ async def run_apply_design(
         f"white background, high quality commercial product shot."
     )
 
-    viz_response = await asyncio.wait_for(
-        external_client.chat.completions.create(
-            model=config.FLUX_IMAGE_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": viz_prompt},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(design_image_b64)}},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(product_image_b64)}}
-                ]
-            }],
-        ),
-        timeout=120,
-    )
+    from ai_agents.design_agent import generate_image_via_gemini
 
-    visualization_image = _extract_b64_from_response(viz_response)
+    visualization_image = await generate_image_via_gemini(viz_prompt)
     if not visualization_image:
         raise RuntimeError("Visualization step failed -- no image returned.")
 
@@ -292,7 +252,7 @@ async def run_apply_design(
     enhance_prompt = (
         f"CRITICAL INSTRUCTION: Do NOT hallucinate, generate new designs, or alter the core pattern. "
         f"This is STRICTLY a color and lighting enhancement task. "
-        f"Enhance the provided premium, high-quality product mockup of a {product_color} {product_type} "
+        f"Enhance the premium, high-quality product mockup of a {product_color} {product_type} "
         f"with the custom design: {prompt}. "
         f"The design colors must be vibrant and complement the {product_color} product perfectly. "
         f"Improve color harmony, contrast, and make it vivid and eye-catching without changing the design itself. "
@@ -301,21 +261,7 @@ async def run_apply_design(
         f"Ultra high quality, 4K commercial product shot."
     )
 
-    enhance_response = await asyncio.wait_for(
-        external_client.chat.completions.create(
-            model=config.FLUX_IMAGE_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": enhance_prompt},
-                    {"type": "image_url", "image_url": {"url": _format_image_url(visualization_image)}}
-                ]
-            }],
-        ),
-        timeout=120,
-    )
-
-    enhanced_image = _extract_b64_from_response(enhance_response)
+    enhanced_image = await generate_image_via_gemini(enhance_prompt)
     if not enhanced_image:
         raise RuntimeError("Color enhancement step failed -- no image returned.")
 

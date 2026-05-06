@@ -36,15 +36,9 @@ external_client = AsyncOpenAI(
 )
 
 model = OpenAIChatCompletionsModel(
-    model=config.GEMINI_IMAGE_MODEL,
+    model="gemini-2.5-flash-image",
     openai_client=external_client,
 )
-
-
-
-
-
-
 
 @function_tool
 async def apply_design_to_product(
