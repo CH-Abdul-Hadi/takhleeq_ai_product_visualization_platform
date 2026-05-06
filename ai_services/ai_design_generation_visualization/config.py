@@ -27,6 +27,7 @@ GEMINI_API_KEY : str = os.getenv("GEMINI_API_KEY")
 # GEMINI_BASE_URL : str = os.getenv("GEMINI_BASE_URL")
 
 FLUX_IMAGE_MODEL : str = os.getenv("FLUX_IMAGE_MODEL")
+IMAGE_PROVIDER: str = os.getenv("IMAGE_PROVIDER", "pollinations").strip().lower()
 
 # --- Kafka ---
 KAFKA_BOOTSTRAP_SERVER: str = os.getenv("KAFKA_BOOTSTRAP_SERVER")

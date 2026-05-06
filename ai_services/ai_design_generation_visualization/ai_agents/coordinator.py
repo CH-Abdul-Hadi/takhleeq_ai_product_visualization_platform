@@ -19,7 +19,9 @@ from ai_agents.design_agent import (
     generate_design,
     get_image,
     external_client,
+    generate_image_via_gemini,
 )
+from ai_agents.image_compositor import blend_design_onto_product
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +95,176 @@ def _format_image_url(b64_data: str) -> str:
     return f"data:image/jpeg;base64,{b64_data}"
 
 
+def _extract_b64_from_completion(response) -> str | None:
+    """Extract base64 image data from Gemini/OpenAI-compatible chat responses."""
+    if not response or not getattr(response, "choices", None):
+        return None
+
+    msg = response.choices[0].message
+
+    # Primary path: image models return data under message.images
+    raw_msg = msg.model_dump() if hasattr(msg, "model_dump") else {}
+    images = raw_msg.get("images") or []
+    if images:
+        image_url = images[0].get("image_url", {}).get("url", "")
+        match = re.search(r"base64,(.+)", image_url)
+        if match:
+            return match.group(1)
+
+    # Fallback path: base64 can be embedded in content
+    content = getattr(msg, "content", None)
+    if isinstance(content, str):
+        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+        if match:
+            return match.group(1)
+        stripped = content.strip()
+        if len(stripped) > 200 and re.match(r"^[A-Za-z0-9+/=\s]+$", stripped):
+            return stripped.replace("\n", "").replace(" ", "")
+
+    return None
+
+
+async def _apply_design_with_image_inputs(
+    *,
+    design_image_b64: str,
+    product_image_b64: str,
+    product_type: str,
+    product_color: str,
+    prompt: str,
+) -> str | None:
+    """Use Gemini image-edit style input with both product and design images."""
+    instruction = (
+        "You are doing image editing, not image generation from scratch. "
+        "Use Image 1 as the base product photo and keep the same product shape, camera angle, "
+        "material, proportions, background style, and composition. "
+        "Use Image 2 as the exact design artwork to place on the product surface. "
+        "Do not change product type, do not replace the product, and do not invent a different item. "
+        f"The product is a {product_color} {product_type}. "
+        "Apply the design naturally with realistic perspective and lighting, preserving the design identity. "
+        f"User placement/style instruction: {prompt}"
+    )
+
+    candidate_models = [
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.5-flash-image-preview",
+    ]
+
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            response = await external_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": instruction},
+                            {"type": "image_url", "image_url": {"url": _format_image_url(product_image_b64)}},
+                            {"type": "image_url", "image_url": {"url": _format_image_url(design_image_b64)}},
+                        ],
+                    }
+                ],
+            )
+            image_b64 = _extract_b64_from_completion(response)
+            if image_b64:
+                return image_b64
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    if last_error:
+        raise RuntimeError(f"No supported Gemini image model worked for apply step: {last_error}")
+    return None
+
+
+async def _enhance_existing_mockup(
+    *,
+    mockup_b64: str,
+    product_type: str,
+    product_color: str,
+    prompt: str,
+) -> str | None:
+    """Enhance colors/lighting while preserving the exact product and design."""
+    instruction = (
+        "Perform a light retouch on Image 1 only. "
+        "Keep the same product, same design placement, same composition, and same geometry. "
+        "Do not replace or redraw the product. "
+        f"The product is a {product_color} {product_type}. "
+        "Improve color harmony, contrast, and studio lighting while preserving all design details. "
+        f"Design context: {prompt}"
+    )
+
+    candidate_models = [
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.5-flash-image-preview",
+    ]
+
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            response = await external_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": instruction},
+                            {"type": "image_url", "image_url": {"url": _format_image_url(mockup_b64)}},
+                        ],
+                    }
+                ],
+            )
+            image_b64 = _extract_b64_from_completion(response)
+            if image_b64:
+                return image_b64
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    if last_error:
+        raise RuntimeError(f"No supported Gemini image model worked for enhancement step: {last_error}")
+    return None
+
+
+async def _apply_design_with_pollinations(
+    *,
+    product_image_b64: str,
+    design_image_b64: str,
+    product_type: str,
+    product_color: str,
+    prompt: str,
+) -> str | None:
+    """Generate texture guidance with Pollinations, then blend on real product image."""
+    design_texture_prompt = (
+        f"Create only the printable artwork for a {product_color} {product_type}. "
+        "No product mockup, no apparel, no hoodie, no mannequin, no background scene. "
+        "Return design artwork isolated on white background. "
+        f"Design request: {prompt}"
+    )
+    generated_design_b64 = await generate_image_via_gemini(design_texture_prompt)
+    if not generated_design_b64:
+        generated_design_b64 = design_image_b64
+
+    return blend_design_onto_product(
+        product_image_b64=product_image_b64,
+        design_image_b64=generated_design_b64,
+    )
+
+
+async def _enhance_mockup_with_pollinations(
+    *,
+    mockup_b64: str,
+    product_type: str,
+    product_color: str,
+    prompt: str,
+) -> str | None:
+    """Keep product image fixed; optionally retouch via compositing-preserving fallback."""
+    _ = (product_type, product_color, prompt)
+    return mockup_b64
+
+
 # ---------------------------------------------------------------------------
 # Pipeline coordinator
 # ---------------------------------------------------------------------------
@@ -142,9 +314,22 @@ async def run_full_pipeline(
         f"white background, high quality commercial product shot."
     )
 
-    from ai_agents.design_agent import generate_image_via_gemini
-    
-    visualization_image = await generate_image_via_gemini(viz_prompt)
+    if config.IMAGE_PROVIDER == "pollinations":
+        visualization_image = await _apply_design_with_pollinations(
+            design_image_b64=design_image,
+            product_image_b64=product_image_b64,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=viz_prompt,
+        )
+    else:
+        visualization_image = await _apply_design_with_image_inputs(
+            design_image_b64=design_image,
+            product_image_b64=product_image_b64,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=viz_prompt,
+        )
     if not visualization_image:
         raise RuntimeError("Visualization step failed — no image returned.")
 
@@ -161,7 +346,20 @@ async def run_full_pipeline(
         f"Ultra high quality, 4K commercial product shot."
     )
 
-    enhanced_image = await generate_image_via_gemini(enhance_prompt)
+    if config.IMAGE_PROVIDER == "pollinations":
+        enhanced_image = await _enhance_mockup_with_pollinations(
+            mockup_b64=visualization_image,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=enhance_prompt,
+        )
+    else:
+        enhanced_image = await _enhance_existing_mockup(
+            mockup_b64=visualization_image,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=enhance_prompt,
+        )
     if not enhanced_image:
         raise RuntimeError("Color enhancement step failed — no image returned.")
 
@@ -242,9 +440,22 @@ async def run_apply_design(
         f"white background, high quality commercial product shot."
     )
 
-    from ai_agents.design_agent import generate_image_via_gemini
-
-    visualization_image = await generate_image_via_gemini(viz_prompt)
+    if config.IMAGE_PROVIDER == "pollinations":
+        visualization_image = await _apply_design_with_pollinations(
+            design_image_b64=design_image_b64,
+            product_image_b64=product_image_b64,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=viz_prompt,
+        )
+    else:
+        visualization_image = await _apply_design_with_image_inputs(
+            design_image_b64=design_image_b64,
+            product_image_b64=product_image_b64,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=viz_prompt,
+        )
     if not visualization_image:
         raise RuntimeError("Visualization step failed -- no image returned.")
 
@@ -261,7 +472,20 @@ async def run_apply_design(
         f"Ultra high quality, 4K commercial product shot."
     )
 
-    enhanced_image = await generate_image_via_gemini(enhance_prompt)
+    if config.IMAGE_PROVIDER == "pollinations":
+        enhanced_image = await _enhance_mockup_with_pollinations(
+            mockup_b64=visualization_image,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=enhance_prompt,
+        )
+    else:
+        enhanced_image = await _enhance_existing_mockup(
+            mockup_b64=visualization_image,
+            product_type=product_type,
+            product_color=product_color,
+            prompt=enhance_prompt,
+        )
     if not enhanced_image:
         raise RuntimeError("Color enhancement step failed -- no image returned.")
 

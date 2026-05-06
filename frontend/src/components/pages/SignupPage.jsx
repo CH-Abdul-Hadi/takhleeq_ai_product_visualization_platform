@@ -25,6 +25,10 @@ const SignupPage = () => {
   };
 
   const validateForm = () => {
+    if (/\s/.test(formData.username)) {
+      setError("Username cannot contain spaces");
+      return false;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return false;
