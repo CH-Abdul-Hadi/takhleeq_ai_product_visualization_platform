@@ -69,9 +69,16 @@ async def create_user(
     db: Annotated[Session, Depends(get_session)],
     producer: Annotated[AIOKafkaProducer, Depends(kafka_producer)],
 ) -> Dict[str, str]:
-    if not user.username or not user.plain_password:
+    username = user.username.strip()
+
+    if not username or not user.plain_password:
         raise HTTPException(
             status_code=400, detail="Please Enter Username or Password...."
+        )
+
+    if any(char.isspace() for char in username):
+        raise HTTPException(
+            status_code=400, detail="Username cannot contain spaces"
         )
 
     # Validate role
@@ -81,7 +88,7 @@ async def create_user(
         )
 
     new_user = User(
-        username=user.username,
+        username=username,
         email=user.email,
         hashed_password=bcrypt_context.hash(user.plain_password),
         role=user.role,
@@ -98,7 +105,7 @@ async def create_user(
     event = {
         "event_type": "User_Created",
         "user": {
-            "username": user.username,
+            "username": username,
             "email": user.email,
             "role": user.role,
         },
