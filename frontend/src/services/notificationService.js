@@ -19,28 +19,40 @@ export const notificationService = {
    * Falls back to service root message when dedicated endpoint is unavailable.
    */
   getNotifications: async () => {
-    try {
-      const response = await notificationApi.get('/get_notification');
-      return response.data;
-    } catch (error) {
-      const isNotFound = error?.response?.status === 404;
-      if (!isNotFound) {
-        throw error;
+    const normalize = (payload) => {
+      if (!payload) return [];
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload.notifications)) return payload.notifications;
+      if (Array.isArray(payload.data)) return payload.data;
+      return [];
+    };
+
+    const endpointCandidates = ["/get_notification", "/notifications", "/notification"];
+
+    for (const endpoint of endpointCandidates) {
+      try {
+        const response = await notificationApi.get(endpoint);
+        const items = normalize(response.data);
+        if (items.length > 0) return items;
+      } catch (error) {
+        const status = error?.response?.status;
+        if (status !== 404) {
+          throw error;
+        }
       }
-
-      const statusResponse = await notificationApi.get('/');
-      const message = statusResponse?.data?.message || "Notification service is running.";
-
-      return [
-        {
-          id: "service-status",
-          type: "system",
-          title: "Notification Service",
-          desc: message,
-          time: "Just now",
-          unread: true,
-        },
-      ];
     }
+
+    const statusResponse = await notificationApi.get('/');
+    const message = statusResponse?.data?.message || "Notification service is running.";
+    return [
+      {
+        id: "service-status",
+        type: "system",
+        title: "Notification Service",
+        desc: `${message} Email notifications are handled asynchronously via Kafka consumers.`,
+        time: "Just now",
+        unread: true,
+      },
+    ];
   }
 };

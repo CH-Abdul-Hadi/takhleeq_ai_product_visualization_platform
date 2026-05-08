@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Download, Check, X, Loader2 } from "lucide-react";
 import { aiDesignService } from "../../services/aiDesignService";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const getBase64Src = (b64String) => {
   if (!b64String) return null;
@@ -24,6 +25,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const MyDesignsPage = () => {
+  const user = useSelector((state) => state.auth.user);
   const [myDesigns, setMyDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,13 +33,17 @@ const MyDesignsPage = () => {
 
   useEffect(() => {
     fetchDesigns();
-  }, []);
+  }, [user?.id]);
 
   const fetchDesigns = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await aiDesignService.getAllAICenterRecords();
+      if (!user?.id) {
+        setMyDesigns([]);
+        return;
+      }
+      const data = await aiDesignService.getAICenterRecordsByUser(user.id);
       setMyDesigns(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch designs", err);
@@ -145,7 +151,7 @@ const MyDesignsPage = () => {
 
                     {/* Hover Action Bar */}
                     {design.status === "pending" && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
                         <div className="flex items-center justify-between gap-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                           <div className="flex gap-2">
                             <button

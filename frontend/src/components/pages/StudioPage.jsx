@@ -13,6 +13,8 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { aiDesignService } from "../../services/aiDesignService";
 import { productService } from "../../services/productService";
 import EqualizerLoader from "../ui/EqualizerLoader";
+import { useSelector } from "react-redux";
+import { useCart } from "../../hooks/useCart";
 
 const PRODUCTS_BASE_URL =
   import.meta.env.VITE_PRODUCTS_API_URL || "http://localhost:8000";
@@ -78,6 +80,8 @@ const StudioPage = () => {
   const [productsLoading, setProductsLoading] = useState(true);
   const [generatedDesign, setGeneratedDesign] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const preselectedProductId = useMemo(
@@ -86,6 +90,8 @@ const StudioPage = () => {
       Number(location.state?.selectedProductId),
     [location.state?.selectedProductId, searchParams]
   );
+  const user = useSelector((state) => state.auth.user);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     productService
@@ -139,12 +145,20 @@ const StudioPage = () => {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !selectedProduct) return;
+    if (!user?.id) {
+      setStatusMessage({
+        type: "error",
+        text: "User session is missing. Please login again.",
+      });
+      return;
+    }
     setIsGenerating(true);
     setStatusMessage(null);
     setGeneratedDesign(null);
 
     try {
       const requestPayload = {
+        user_id: user.id,
         user_idea: prompt,
         product_id: selectedProduct.product_id,
         product_type: productType || "t-shirt",
@@ -163,6 +177,61 @@ const StudioPage = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleConfirmDesign = async () => {
+    if (!generatedDesign?.id) return;
+    if (generatedDesign.status === "approved") {
+      setStatusMessage({ type: "success", text: "This design is already confirmed." });
+      return;
+    }
+    setIsConfirming(true);
+    try {
+      const approved = await aiDesignService.approveDesign(generatedDesign.id);
+      setGeneratedDesign(approved);
+      setStatusMessage({ type: "success", text: "Design confirmed and saved to database." });
+    } catch (error) {
+      const detail = error?.response?.data?.detail;
+      setStatusMessage({
+        type: "error",
+        text: detail || "Could not confirm design right now.",
+      });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!selectedProduct || !generatedDesign) return;
+    if (generatedDesign.status !== "approved") {
+      setStatusMessage({
+        type: "error",
+        text: "Please confirm the design before adding it to cart.",
+      });
+      return;
+    }
+    setIsAddingToCart(true);
+    const previewImage =
+      getDesignImageSrc(generatedDesign.final_product || generatedDesign.design_from_gemini) ||
+      getProductImageSrc(selectedProduct);
+
+    const cartItem = {
+      id: `ai-${generatedDesign.id}-${selectedProduct.product_id}`,
+      product_id: selectedProduct.product_id,
+      name: `${selectedProduct.Product_name} (AI Design)`,
+      price: Number(selectedProduct.price || selectedProduct.Price || 0),
+      image: previewImage,
+      design_id: generatedDesign.id,
+      design_prompt: generatedDesign.user_idea,
+    };
+    const ok = await addToCart(cartItem, 1);
+    setStatusMessage({
+      type: ok ? "success" : "error",
+      text: ok
+        ? "AI design item added to cart."
+        : "Could not add this item to cart.",
+    });
+    setIsAddingToCart(false);
   };
 
   const handleDownload = async () => {
@@ -294,6 +363,34 @@ const StudioPage = () => {
                 >
                   <Download size={16} />
                   Download
+                </button>
+                <button
+                  onClick={handleConfirmDesign}
+                  disabled={isConfirming || generatedDesign.status === "approved"}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primaryColor/40 text-primaryColor hover:bg-primaryColor/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isConfirming ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Confirming...
+                    </>
+                  ) : (
+                    "Confirm Design"
+                  )}
+                </button>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart || generatedDesign.status !== "approved"}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primaryColor text-black hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed font-fontWeightBold"
+                >
+                  {isAddingToCart ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add to Cart"
+                  )}
                 </button>
               </div>
             )}

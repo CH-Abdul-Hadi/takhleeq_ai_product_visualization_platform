@@ -85,6 +85,14 @@ const FloatingChatbot = () => {
     });
   };
 
+  const WhatsAppTypingLoader = () => (
+    <div className="bg-borderColor p-3 px-4 rounded-2xl rounded-tl-sm flex items-center gap-2 h-10 shadow-sm">
+      <span className="w-2 h-2 bg-textColorMuted rounded-full animate-[pulse_1s_ease-in-out_infinite]" />
+      <span className="w-2 h-2 bg-textColorMuted rounded-full animate-[pulse_1s_ease-in-out_infinite] [animation-delay:0.2s]" />
+      <span className="w-2 h-2 bg-textColorMuted rounded-full animate-[pulse_1s_ease-in-out_infinite] [animation-delay:0.4s]" />
+    </div>
+  );
+
   return (
     <div className="fixed bottom-marginLarge right-marginLarge z-50 z-zIndexModal font-fontFamilyBody">
       {/* Chat Window */}
@@ -127,7 +135,7 @@ const FloatingChatbot = () => {
               <div key={msg.id} className="flex flex-col">
                 <div className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start items-start gap-2'}`}>
                   {msg.sender === 'bot' && (
-                    <div className="w-8 h-8 rounded-full bg-[#EBB924] flex-shrink-0 flex items-center justify-center text-black font-bold text-sm mt-1">
+                    <div className="w-8 h-8 rounded-full bg-[#EBB924] shrink-0 flex items-center justify-center text-black font-bold text-sm mt-1">
                       T
                     </div>
                   )}
@@ -165,14 +173,10 @@ const FloatingChatbot = () => {
             
             {isTyping && (
               <div className="flex justify-start items-start gap-2 animate-in fade-in">
-                <div className="w-8 h-8 rounded-full bg-[#EBB924] flex-shrink-0 flex items-center justify-center text-black font-bold text-sm mt-1">
+                <div className="w-8 h-8 rounded-full bg-[#EBB924] shrink-0 flex items-center justify-center text-black font-bold text-sm mt-1">
                   T
                 </div>
-                <div className="bg-borderColor p-3 px-4 rounded-2xl rounded-tl-sm flex items-center gap-1 h-10 shadow-sm">
-                  <span className="w-1.5 h-1.5 bg-textColorMuted rounded-full animate-bounce"></span>
-                  <span className="w-1.5 h-1.5 bg-textColorMuted rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></span>
-                  <span className="w-1.5 h-1.5 bg-textColorMuted rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></span>
-                </div>
+                <WhatsAppTypingLoader />
               </div>
             )}
           </div>
@@ -210,7 +214,7 @@ const FloatingChatbot = () => {
             >
               <button 
                 type="button"
-                className="w-10 h-10 flex-shrink-0 bg-surfaceColor border border-borderColor rounded-lg flex items-center justify-center text-textColorMuted hover:text-primaryColor hover:border-primaryColor transition-all"
+                className="w-10 h-10 shrink-0 bg-surfaceColor border border-borderColor rounded-lg flex items-center justify-center text-textColorMuted hover:text-primaryColor hover:border-primaryColor transition-all"
               >
                 <Plus size={20} />
               </button>
@@ -231,7 +235,7 @@ const FloatingChatbot = () => {
               <button 
                 type="submit"
                 disabled={!input.trim()}
-                className="w-10 h-10 flex-shrink-0 bg-primaryColor text-textColorInverse rounded-lg flex items-center justify-center hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-10 h-10 shrink-0 bg-primaryColor text-textColorInverse rounded-lg flex items-center justify-center hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <Send size={18} className="ml-1" />
               </button>

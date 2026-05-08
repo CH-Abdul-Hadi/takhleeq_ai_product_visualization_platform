@@ -125,6 +125,10 @@ class AICenterCreateRequest(BaseModel):
         ...,
         description="The user's design idea / text prompt.",
     )
+    user_id: int = Field(
+        ...,
+        description="ID of the user creating this design.",
+    )
     product_id: int = Field(
         ...,
         description="ID of the product in the Product Service to apply the design onto.",
@@ -147,6 +151,7 @@ class AICenterResponse(BaseModel):
     """Response containing an AI Center record."""
 
     id: int
+    user_id: int
     user_idea: str
     design_from_gemini: str | None = None
     product_id: int
