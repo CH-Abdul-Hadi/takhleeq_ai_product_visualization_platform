@@ -13,6 +13,7 @@ const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -20,6 +21,7 @@ const NotificationsPage = () => {
         setError(null);
         const data = await notificationService.getNotifications();
         setNotifications(Array.isArray(data) ? data : []);
+        setLastUpdated(new Date());
       } catch (err) {
         console.error("Failed to fetch notifications:", err);
         setError("Could not load notifications from notification service.");
@@ -29,12 +31,22 @@ const NotificationsPage = () => {
     };
 
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 45000);
+    return () => clearInterval(interval);
   }, []);
 
   const mappedNotifications = useMemo(
     () =>
       notifications.map((notif, index) => {
-        const type = notif.type || "default";
+        const messageText = `${notif.desc || ""} ${notif.message || ""}`.toLowerCase();
+        const inferredType = messageText.includes("email")
+          ? "system"
+          : messageText.includes("order")
+            ? "order"
+            : messageText.includes("alert")
+              ? "alert"
+              : "default";
+        const type = notif.type || inferredType;
         const meta = TYPE_META[type] || TYPE_META.default;
         return {
           id: notif.id ?? `notification-${index}`,
@@ -63,6 +75,11 @@ const NotificationsPage = () => {
             <Check size={16} /> Mark all as read
           </button>
         </div>
+        <p className="text-xs text-textColorMuted mb-4">
+          {lastUpdated
+            ? `Last synced: ${lastUpdated.toLocaleTimeString()}`
+            : "Waiting for first sync..."}
+        </p>
 
         <div className="space-y-4">
           {loading && (

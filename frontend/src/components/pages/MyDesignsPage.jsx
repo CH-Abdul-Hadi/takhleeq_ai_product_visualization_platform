@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Download, Check, X, Loader2 } from "lucide-react";
 import { aiDesignService } from "../../services/aiDesignService";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { designOwnershipService } from "../../services/designOwnershipService";
 
 const getBase64Src = (b64String) => {
   if (!b64String) return null;
@@ -24,6 +26,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const MyDesignsPage = () => {
+  const user = useSelector((state) => state.auth.user);
   const [myDesigns, setMyDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,7 +41,10 @@ const MyDesignsPage = () => {
       setLoading(true);
       setError(null);
       const data = await aiDesignService.getAllAICenterRecords();
-      setMyDesigns(Array.isArray(data) ? data : []);
+      const records = Array.isArray(data) ? data : [];
+      const ownedIds = new Set(designOwnershipService.getOwnedDesignIds(user));
+      const ownedRecords = records.filter((record) => ownedIds.has(Number(record.id)));
+      setMyDesigns(ownedRecords);
     } catch (err) {
       console.error("Failed to fetch designs", err);
       setError("Failed to load your designs. Please try again.");
@@ -145,7 +151,7 @@ const MyDesignsPage = () => {
 
                     {/* Hover Action Bar */}
                     {design.status === "pending" && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
                         <div className="flex items-center justify-between gap-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                           <div className="flex gap-2">
                             <button
