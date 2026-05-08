@@ -16,7 +16,7 @@ import config
 async def kafka_producer():
     """FastAPI dependency that yields a started Kafka producer."""
 
-    producer = AIOKafkaProducer(config.KAFKA_BOOTSTRAP_SERVER)
+    producer = AIOKafkaProducer(bootstrap_servers=str(config.KAFKA_BOOTSTRAP_SERVER))
     await producer.start()
     try:
         yield producer

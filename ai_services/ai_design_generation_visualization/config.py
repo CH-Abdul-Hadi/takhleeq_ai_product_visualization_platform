@@ -24,7 +24,7 @@ IMAGE_QUALITY = "high"
 GEMINI_API_KEY : str = os.getenv("GEMINI_API_KEY")
 # GEMINI_MODEL : str = os.getenv("GEMINI_MODEL")
 # GEMINI_IMAGE_MODEL : str = os.getenv("GEMINI_IMAGE_MODEL")
-# GEMINI_BASE_URL : str = os.getenv("GEMINI_BASE_URL")
+GEMINI_BASE_URL : str = os.getenv("GEMINI_BASE_URL")
 
 FLUX_IMAGE_MODEL : str = os.getenv("FLUX_IMAGE_MODEL")
 IMAGE_PROVIDER: str = os.getenv("IMAGE_PROVIDER", "pollinations").strip().lower()

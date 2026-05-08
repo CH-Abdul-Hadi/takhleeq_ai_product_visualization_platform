@@ -20,7 +20,7 @@ load_dotenv()
 
 # gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+gemini_api_key = os.getenv("GEMINI_API_KEY")
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 
 print(f"DEBUG: Key length is {len(pinecone_api_key) if pinecone_api_key else 0}")
@@ -28,8 +28,8 @@ print(f"DEBUG: Key starts with: {pinecone_api_key[:8]}...")
 
 # if gemini_api_key:
 #     print("Gemini API Key loaded.")
-if openrouter_api_key:
-    print(f"Openrouter API Key loaded. Starts with: {openrouter_api_key[:15]}...")
+if gemini_api_key:
+    print(f"gemini_api_key API Key loaded. Starts with: {gemini_api_key[:15]}...")
 if pinecone_api_key:
     print("Pinecone API Key loaded.")
 
@@ -90,14 +90,14 @@ def search_knowledge_base(query: str) -> str:
 
 
 external_client = AsyncOpenAI(
-    api_key=openrouter_api_key,
-    # base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-    base_url="https://openrouter.ai/api/v1",
+    api_key=gemini_api_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    # base_url="https://openrouter.ai/api/v1",
 )
 
 model = OpenAIChatCompletionsModel(
     # model="gemini-2.0-flash",
-    model="google/gemini-2.0-flash-001",
+    model="gemini-1.5-flash",
     openai_client=external_client,
 )
 

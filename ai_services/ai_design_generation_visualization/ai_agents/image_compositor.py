@@ -37,8 +37,8 @@ def blend_design_onto_product(
     product_image_b64: str,
     design_image_b64: str,
     *,
-    width_ratio: float = 0.45,
-    center_y_ratio: float = 0.42,
+    width_ratio: float = 0.35,
+    center_y_ratio: float = 0.5,
 ) -> str:
     """Overlay the design onto the product while preserving original product image."""
     product = _decode_image(product_image_b64)
