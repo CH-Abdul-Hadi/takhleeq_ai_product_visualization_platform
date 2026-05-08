@@ -3,7 +3,6 @@ import { Download, Check, X, Loader2 } from "lucide-react";
 import { aiDesignService } from "../../services/aiDesignService";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { designOwnershipService } from "../../services/designOwnershipService";
 
 const getBase64Src = (b64String) => {
   if (!b64String) return null;
@@ -34,17 +33,18 @@ const MyDesignsPage = () => {
 
   useEffect(() => {
     fetchDesigns();
-  }, []);
+  }, [user?.id]);
 
   const fetchDesigns = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await aiDesignService.getAllAICenterRecords();
-      const records = Array.isArray(data) ? data : [];
-      const ownedIds = new Set(designOwnershipService.getOwnedDesignIds(user));
-      const ownedRecords = records.filter((record) => ownedIds.has(Number(record.id)));
-      setMyDesigns(ownedRecords);
+      if (!user?.id) {
+        setMyDesigns([]);
+        return;
+      }
+      const data = await aiDesignService.getAICenterRecordsByUser(user.id);
+      setMyDesigns(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch designs", err);
       setError("Failed to load your designs. Please try again.");

@@ -15,7 +15,6 @@ import { productService } from "../../services/productService";
 import EqualizerLoader from "../ui/EqualizerLoader";
 import { useSelector } from "react-redux";
 import { useCart } from "../../hooks/useCart";
-import { designOwnershipService } from "../../services/designOwnershipService";
 
 const PRODUCTS_BASE_URL =
   import.meta.env.VITE_PRODUCTS_API_URL || "http://localhost:8000";
@@ -146,12 +145,20 @@ const StudioPage = () => {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !selectedProduct) return;
+    if (!user?.id) {
+      setStatusMessage({
+        type: "error",
+        text: "User session is missing. Please login again.",
+      });
+      return;
+    }
     setIsGenerating(true);
     setStatusMessage(null);
     setGeneratedDesign(null);
 
     try {
       const requestPayload = {
+        user_id: user.id,
         user_idea: prompt,
         product_id: selectedProduct.product_id,
         product_type: productType || "t-shirt",
@@ -159,7 +166,6 @@ const StudioPage = () => {
       };
       const result = await aiDesignService.createAICenterDesign(requestPayload);
       setGeneratedDesign(result);
-      designOwnershipService.addOwnedDesign(user, result?.id);
       setStatusMessage({ type: "success", text: "Design generated successfully." });
     } catch (error) {
       console.error("Failed to generate design", error);

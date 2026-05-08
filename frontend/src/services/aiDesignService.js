@@ -65,6 +65,17 @@ export const aiDesignService = {
       throw error;
     }
   },
+  getAICenterRecordsByUser: async (userId) => {
+    try {
+      const response = await aiDesignApi.get('/ai-center/', {
+        params: { user_id: userId },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Failed to get user AI center records:", error);
+      throw error;
+    }
+  },
 
   /**
    * Check AI design service health

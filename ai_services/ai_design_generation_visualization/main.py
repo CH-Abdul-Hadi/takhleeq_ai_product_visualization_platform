@@ -164,6 +164,7 @@ async def ai_center_create(
             _save_image("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "ai_center_design_test")
             
             ai_center = AICenter(
+                user_id=request.user_id,
                 user_idea=request.user_idea,
                 design_from_gemini="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
                 product_id=request.product_id,
@@ -175,6 +176,7 @@ async def ai_center_create(
             session.refresh(ai_center)
             return AICenterResponse(
                 id=ai_center.id,
+                user_id=ai_center.user_id,
                 user_idea=ai_center.user_idea,
                 design_from_gemini=ai_center.design_from_gemini,
                 product_id=ai_center.product_id,
@@ -212,6 +214,7 @@ async def ai_center_create(
 
         # Step 4: Save to database
         ai_center = AICenter(
+            user_id=request.user_id,
             user_idea=request.user_idea,
             design_from_gemini=design_image_b64,
             product_id=request.product_id,
@@ -226,6 +229,7 @@ async def ai_center_create(
 
         return AICenterResponse(
             id=ai_center.id,
+            user_id=ai_center.user_id,
             user_idea=ai_center.user_idea,
             design_from_gemini=ai_center.design_from_gemini,
             product_id=ai_center.product_id,
@@ -298,6 +302,7 @@ async def ai_center_approve(
 
     return AICenterResponse(
         id=ai_center.id,
+        user_id=ai_center.user_id,
         user_idea=ai_center.user_idea,
         design_from_gemini=ai_center.design_from_gemini,
         product_id=ai_center.product_id,
@@ -323,6 +328,7 @@ async def ai_center_reject(
 
     return AICenterResponse(
         id=ai_center.id,
+        user_id=ai_center.user_id,
         user_idea=ai_center.user_idea,
         design_from_gemini=ai_center.design_from_gemini,
         product_id=ai_center.product_id,
@@ -343,6 +349,7 @@ async def ai_center_get(
 
     return AICenterResponse(
         id=ai_center.id,
+        user_id=ai_center.user_id,
         user_idea=ai_center.user_idea,
         design_from_gemini=ai_center.design_from_gemini,
         product_id=ai_center.product_id,
@@ -353,13 +360,18 @@ async def ai_center_get(
 
 @app.get("/ai-center/", response_model=list[AICenterResponse])
 async def ai_center_list(
+    user_id: int | None = None,
     session: Annotated[Session, Depends(get_session)],
 ):
     """List all AI Center records."""
-    records = session.exec(select(AICenter)).all()
+    statement = select(AICenter)
+    if user_id is not None:
+        statement = statement.where(AICenter.user_id == user_id)
+    records = session.exec(statement).all()
     return [
         AICenterResponse(
             id=r.id,
+            user_id=r.user_id,
             user_idea=r.user_idea,
             design_from_gemini=r.design_from_gemini,
             product_id=r.product_id,

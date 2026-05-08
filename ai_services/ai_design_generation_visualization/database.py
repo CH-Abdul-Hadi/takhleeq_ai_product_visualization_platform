@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, create_engine, Session
+from sqlalchemy import text
 
 import config
 
@@ -17,6 +18,9 @@ class AICenter(SQLModel, table=True):
     """Stores an AI design request and its outputs."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(
+        ..., description="Reference to the user who created this design."
+    )
     user_idea: str = Field(
         ..., description="The user's design prompt / idea."
     )
@@ -50,6 +54,14 @@ engine = create_engine(connection_string, connect_args={}, pool_recycle=300)
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
+    # Keep existing environments compatible by adding user_id for older tables.
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE aicenter ADD COLUMN IF NOT EXISTS user_id INTEGER")
+        )
+        conn.execute(
+            text("UPDATE aicenter SET user_id = 0 WHERE user_id IS NULL")
+        )
 
 
 def get_session():
