@@ -360,8 +360,8 @@ async def ai_center_get(
 
 @app.get("/ai-center/", response_model=list[AICenterResponse])
 async def ai_center_list(
-    user_id: int | None = None,
     session: Annotated[Session, Depends(get_session)],
+    user_id: int | None = None
 ):
     """List all AI Center records."""
     statement = select(AICenter)

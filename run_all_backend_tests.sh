@@ -44,10 +44,12 @@ for service in "${SERVICES[@]}"; do
     continue
   fi
 
-  (
-    cd "${SERVICE_PATH}" || exit 1
-    uv run pytest -q
-  )
+  cd "${SERVICE_PATH}" || exit 1
+    # Use a dedicated test venv path to avoid locked/broken existing .venv state.
+    export UV_PROJECT_ENVIRONMENT=".venv-tests"
+    # Ensure pytest exists even when not declared in project dependencies.
+    uv run --with pytest pytest -q
+
   EXIT_CODE=$?
 
   if [[ ${EXIT_CODE} -eq 0 ]]; then
