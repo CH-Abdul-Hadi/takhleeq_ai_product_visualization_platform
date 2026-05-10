@@ -1,7 +1,50 @@
 import React from "react";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { notificationService } from "../../services/notificationService";
 
 const ContactPage = () => {
+  const [formData, setFormData] = React.useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
+  const [isSending, setIsSending] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState("");
+  const [errorMessage, setErrorMessage] = React.useState("");
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setIsSending(true);
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    try {
+      await notificationService.sendContactMessage(formData);
+      setSuccessMessage("Your message has been sent successfully.");
+      setFormData({
+        first_name: "",
+        last_name: "",
+        email: "",
+        subject: "",
+        message: "",
+      });
+    } catch (error) {
+      setErrorMessage(
+        error?.response?.data?.detail ||
+          "Failed to send your message. Please try again."
+      );
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-backgroundColor pt-12 pb-24 px-paddingLarge">
       <div className="max-w-7xl mx-auto">
@@ -23,7 +66,7 @@ const ContactPage = () => {
                </div>
                <h3 className="text-xl font-fontWeightBold text-textColorMain mb-2">Email Us</h3>
                <p className="text-textColorMuted mb-4">We are here to help you with any inquiries.</p>
-               <a href="mailto:support@takhleeq.com" className="text-primaryColor font-fontWeightMedium hover:underline text-lg">support@takhleeq.com</a>
+               <a href="mailto:hasaanqurashi150@gmail.com" className="text-primaryColor font-fontWeightMedium hover:underline text-lg">hasaanqurashi150@gmail.com</a>
             </div>
 
             <div className="bg-surfaceColor p-8 rounded-borderRadiusLg border border-borderColor hover:border-primaryColor/50 hover:shadow-lg transition-all duration-300">
@@ -54,35 +97,46 @@ const ContactPage = () => {
                 <div className="relative z-10">
                   <h2 className="text-3xl font-fontWeightBold text-textColorMain mb-8">Send us a Message</h2>
                   
-                  <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                  {successMessage && (
+                    <div className="rounded-borderRadiusMd border border-green-500/30 bg-green-500/10 px-4 py-3 text-green-400 text-sm">
+                      {successMessage}
+                    </div>
+                  )}
+                  {errorMessage && (
+                    <div className="rounded-borderRadiusMd border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  <form className="space-y-6" onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-fontSizeSm font-fontWeightMedium text-textColorMain block">First Name</label>
-                        <input className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="John" />
+                        <input name="first_name" value={formData.first_name} onChange={handleChange} required className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="John" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-fontSizeSm font-fontWeightMedium text-textColorMain block">Last Name</label>
-                        <input className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="Doe" />
+                        <input name="last_name" value={formData.last_name} onChange={handleChange} required className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="Doe" />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-fontSizeSm font-fontWeightMedium text-textColorMain block">Email</label>
-                      <input type="email" className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="john@example.com" />
+                      <input name="email" type="email" value={formData.email} onChange={handleChange} required className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="john@example.com" />
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-fontSizeSm font-fontWeightMedium text-textColorMain block">Subject</label>
-                      <input className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="How can we help?" />
+                      <input name="subject" value={formData.subject} onChange={handleChange} required className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors" placeholder="How can we help?" />
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-fontSizeSm font-fontWeightMedium text-textColorMain block">Message</label>
-                      <textarea rows="5" className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors resize-none" placeholder="Your message here..."></textarea>
+                      <textarea name="message" value={formData.message} onChange={handleChange} required rows="5" className="w-full bg-backgroundColor border border-borderColor focus:border-primaryColor rounded-borderRadiusMd px-4 py-3 text-textColorMain outline-none transition-colors resize-none" placeholder="Your message here..."></textarea>
                     </div>
 
-                    <button className="w-full bg-primaryColor hover:bg-primaryColor/90 text-white font-fontWeightMedium py-4 rounded-borderRadiusMd transition-all flex items-center justify-center gap-2 text-lg shadow-lg shadow-primaryColor/20 group">
-                      Send Message
+                    <button disabled={isSending} className="w-full bg-primaryColor hover:bg-primaryColor/90 text-white font-fontWeightMedium py-4 rounded-borderRadiusMd transition-all flex items-center justify-center gap-2 text-lg shadow-lg shadow-primaryColor/20 group disabled:opacity-60 disabled:cursor-not-allowed">
+                      {isSending ? "Sending..." : "Send Message"}
                       <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </button>
                   </form>

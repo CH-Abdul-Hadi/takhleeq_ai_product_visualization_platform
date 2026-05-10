@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy.pool import StaticPool
 
 import main
 from database import AICenter
@@ -17,7 +18,11 @@ _ONE_PIXEL_PNG_B64 = (
 
 @pytest.fixture()
 def client():
-    engine = create_engine("sqlite://")
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
 
     def override_get_session():
@@ -184,8 +189,13 @@ def test_ai_center_list_without_filter_returns_all(client):
     assert len(response.json()) == 2
 
 
-def test_approve_design_success_and_emits_event(client):
+def test_approve_design_success_and_emits_event(client, monkeypatch):
     test_client, engine, fake_producer = client
+    monkeypatch.setattr(
+        main,
+        "upload_base64_image",
+        lambda image_data, filename: "https://res.cloudinary.com/demo/image/upload/confirmed.png",
+    )
     with Session(engine) as session:
         rec = AICenter(
             user_id=88,
@@ -205,6 +215,7 @@ def test_approve_design_success_and_emits_event(client):
     payload = response.json()
     assert payload["status"] == "approved"
     assert payload["user_id"] == 88
+    assert payload["final_product"].startswith("https://res.cloudinary.com/")
     assert len(fake_producer.messages) == 1
 
 

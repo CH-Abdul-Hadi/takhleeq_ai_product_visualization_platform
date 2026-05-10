@@ -10,7 +10,6 @@ from sqlmodel import Session
 from . import setting
 from .database import Order, engine
 
-loop = asyncio.get_event_loop()
 logging.basicConfig(level=logging.INFO)
 
 

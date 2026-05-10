@@ -83,7 +83,9 @@ async def create_order(order : Order , producer : Annotated[AIOKafkaProducer, De
     session.commit()
     session.refresh(order)
     try:
-        event = {"event_type" : "Order_Created" , "order" : order.dict()}
+        event_order = order.dict()
+        event_order["custom_product_image"] = None
+        event = {"event_type" : "Order_Created" , "order" : event_order}
         await producer.send_and_wait(setting.KAFKA_ORDER_TOPIC, json.dumps(event).encode('utf-8'))
         print("Order Details Send to kafka topic....")
     except Exception as e:
@@ -99,13 +101,19 @@ async def update_order(order_id : int , update_order : Order , producer : Annota
     db_order = session.get(Order , order_id)
     if not db_order:
         raise HTTPException(status_code=404 , detail=f"Order With this {order_id} not found")    
+    update_data = update_order.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if field != "order_id":
+            setattr(db_order, field, value)
     order_dict = {fields : getattr(db_order ,fields) for fields in db_order.dict()}
     order_json = json.dumps(order_dict).encode('utf-8')
     print("order_json" , order_json)
     session.commit()
     session.refresh(db_order)
     try:    
-        event = {"event_type" : "Order_Updated" , "order" : db_order.dict()}
+        event_order = db_order.dict()
+        event_order["custom_product_image"] = None
+        event = {"event_type" : "Order_Updated" , "order" : event_order}
         await producer.send_and_wait(setting.KAFKA_ORDER_TOPIC, json.dumps(event).encode('utf-8'))
         print("Updated Order Details Send to kafka topic....")
     except Exception as e:
@@ -151,7 +159,9 @@ async def delete_order(order_id : int , session : Annotated[Session , Depends(ge
     session.delete(order)
     session.commit()
     try:
-        event = {"event_type" : "Order_Deleted" , "order" : order.dict()}
+        event_order = order.dict()
+        event_order["custom_product_image"] = None
+        event = {"event_type" : "Order_Deleted" , "order" : event_order}
         await producer.send_and_wait(setting.KAFKA_ORDER_TOPIC, json.dumps(event).encode('utf-8'))
         print("Order Details Send to kafka topic....")
     except Exception as e:

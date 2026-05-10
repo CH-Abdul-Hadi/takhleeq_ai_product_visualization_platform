@@ -4,13 +4,18 @@ from contextlib import asynccontextmanager
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy.pool import StaticPool
 
 from order_services.main import app, get_db
 from order_services.database import Order
 
 
 def test_get_order_returns_all_records():
-    engine = create_engine("sqlite://")
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         session.add(
@@ -46,7 +51,11 @@ def test_get_order_returns_all_records():
 
 
 def test_get_single_order_not_found():
-    engine = create_engine("sqlite://")
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
 
     def override_get_db():

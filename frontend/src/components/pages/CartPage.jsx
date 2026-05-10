@@ -40,11 +40,14 @@ const CartPage = () => {
         items.map(async (item) => {
           const orderPayload = {
             user_email: user.email,
-            product_id: item.id,
+            product_id: item.productId ?? item.id,
             total_amount: Math.round(item.price * item.quantity),
             product_quantity: item.quantity,
             product_price: Math.round(item.price),
             payment_status: "Pending",
+            custom_design_id: item.designId,
+            custom_product_name: item.customProductName,
+            custom_product_image: item.customProductImage,
           };
 
           const orderRes = await orderService.createOrder(orderPayload);

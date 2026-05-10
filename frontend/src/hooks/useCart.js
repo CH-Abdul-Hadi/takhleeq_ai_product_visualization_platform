@@ -28,7 +28,8 @@ export const useCart = () => {
      */
     addToCart: async (product, quantity = 1) => {
       try {
-        const data = await inventoryService.checkInventory(product.id, quantity);
+        const inventoryProductId = product.productId ?? product.id;
+        const data = await inventoryService.checkInventory(inventoryProductId, quantity);
         if (data && data.available === false) {
           alert("This item is out of stock.");
           return false;
@@ -54,7 +55,9 @@ export const useCart = () => {
         return true;
       }
       try {
-        const data = await inventoryService.checkInventory(productId, quantity);
+        const item = items.find((cartItem) => cartItem.id === productId);
+        const inventoryProductId = item?.productId ?? productId;
+        const data = await inventoryService.checkInventory(inventoryProductId, quantity);
         if (data && data.available === false) {
           alert("Not enough inventory available for this quantity.");
           return false;

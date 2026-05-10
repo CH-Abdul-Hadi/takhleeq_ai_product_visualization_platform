@@ -5,15 +5,18 @@ import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../../store/authSlice';
+import cartReducer from '../../store/cartSlice';
 import MyDesignsPage from '../pages/MyDesignsPage';
 import { aiDesignService } from '../../services/aiDesignService';
+import { productService } from '../../services/productService';
 
 vi.mock('../../services/aiDesignService');
+vi.mock('../../services/productService');
 
 const store = configureStore({
-  reducer: { auth: authReducer },
+  reducer: { auth: authReducer, cart: cartReducer },
   preloadedState: {
-    auth: { isAuthenticated: true, user: { username: 'test' }, status: 'succeeded', error: null },
+    auth: { isAuthenticated: true, user: { id: 10, username: 'test' }, status: 'succeeded', error: null },
   },
 });
 
@@ -48,16 +51,17 @@ const renderPage = () =>
 describe('MyDesignsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    productService.getAllProducts.mockResolvedValue([]);
   });
 
   it('shows loading spinner initially', () => {
-    aiDesignService.getAllAICenterRecords.mockImplementation(() => new Promise(() => {}));
+    aiDesignService.getAICenterRecordsByUser.mockImplementation(() => new Promise(() => {}));
     renderPage();
     expect(document.querySelector('.animate-spin')).toBeTruthy();
   });
 
   it('renders design cards after successful fetch', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue(mockDesigns);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue(mockDesigns);
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Floral t-shirt design')).toBeTruthy();
@@ -66,7 +70,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('uses design_from_gemini as image when final_product is null', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue([mockDesigns[0]]);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue([mockDesigns[0]]);
     renderPage();
     await waitFor(() => {
       const img = screen.getByAltText('Floral t-shirt design');
@@ -75,7 +79,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('uses final_product as image when available', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue([mockDesigns[1]]);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue([mockDesigns[1]]);
     renderPage();
     await waitFor(() => {
       const img = screen.getByAltText('Approved minimalist design');
@@ -84,7 +88,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('shows empty state when no designs', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue([]);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue([]);
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('No designs found in your Lab.')).toBeTruthy();
@@ -92,7 +96,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('shows error state when fetch fails', async () => {
-    aiDesignService.getAllAICenterRecords.mockRejectedValue(new Error('Server Error'));
+    aiDesignService.getAICenterRecordsByUser.mockRejectedValue(new Error('Server Error'));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText(/Failed to load your designs/i)).toBeTruthy();
@@ -100,7 +104,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('handles non-array response gracefully', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue(null);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue(null);
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('No designs found in your Lab.')).toBeTruthy();
@@ -108,7 +112,7 @@ describe('MyDesignsPage', () => {
   });
 
   it('calls approveDesign when Approve button clicked on pending design', async () => {
-    aiDesignService.getAllAICenterRecords.mockResolvedValue([mockDesigns[0]]);
+    aiDesignService.getAICenterRecordsByUser.mockResolvedValue([mockDesigns[0]]);
     aiDesignService.approveDesign.mockResolvedValue({ ...mockDesigns[0], status: 'approved' });
     renderPage();
     await waitFor(() => screen.getByTitle('Approve'));

@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, Sparkles, AlertCircle, ShoppingBag, Check } from "lucide-react";
+import { Bell, Sparkles, AlertCircle, ShoppingBag, Check, CreditCard } from "lucide-react";
 import { notificationService } from "../../services/notificationService";
+import { useSelector } from "react-redux";
 
 const TYPE_META = {
   system: { icon: Sparkles, color: "text-primaryColor", bg: "bg-primaryColor/10" },
   order: { icon: ShoppingBag, color: "text-primaryColor", bg: "bg-primaryColor/10" },
+  payment: { icon: CreditCard, color: "text-primaryColor", bg: "bg-primaryColor/10" },
   alert: { icon: AlertCircle, color: "text-primaryColor", bg: "bg-primaryColor/10" },
   default: { icon: Bell, color: "text-primaryColor", bg: "bg-black" },
 };
 
 const NotificationsPage = () => {
+  const user = useSelector((state) => state.auth.user);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +22,7 @@ const NotificationsPage = () => {
     const fetchNotifications = async () => {
       try {
         setError(null);
-        const data = await notificationService.getNotifications();
+        const data = await notificationService.getNotifications(user?.email);
         setNotifications(Array.isArray(data) ? data : []);
         setLastUpdated(new Date());
       } catch (err) {
@@ -33,7 +36,7 @@ const NotificationsPage = () => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 45000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.email]);
 
   const mappedNotifications = useMemo(
     () =>

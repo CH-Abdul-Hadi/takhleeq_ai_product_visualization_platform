@@ -11,14 +11,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import uuid
-import base64
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 import uvicorn
 import httpx
-from pathlib import Path
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +31,7 @@ from model import (
     AICenterResponse,
 )
 from ai_agents.coordinator import run_design_only, run_apply_design
+from cloudinary_service import upload_base64_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -98,19 +96,6 @@ app.add_middleware(
 app.mount("/output", StaticFiles(directory=str(config.OUTPUT_DIR)), name="output")
 
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-
-def _save_image(b64_data: str, label: str) -> str:
-    """Persist a base64 image to the output directory. Returns the filename."""
-    filename = f"{label}_{uuid.uuid4().hex[:8]}.png"
-    filepath = config.OUTPUT_DIR / filename
-    filepath.write_bytes(base64.b64decode(b64_data))
-    return filename
-
-
 @app.get("/health")
 async def health_check():
     """Health-check endpoint."""
@@ -160,9 +145,7 @@ async def ai_center_create(
         # Check for integration test
         if request.user_idea == "Test floral pattern design" and request.product_id == 999:
             logger.info("Integration test detected, returning mock response")
-            # Save dummy images
-            _save_image("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "ai_center_design_test")
-            
+
             ai_center = AICenter(
                 user_id=request.user_id,
                 user_idea=request.user_idea,
@@ -191,7 +174,6 @@ async def ai_center_create(
             reference_image_b64=None,
         )
         design_image_b64 = design_result["design_image"]
-        _save_image(design_image_b64, "ai_center_design")
 
         # Step 3: Apply design to product (if we have a product image)
         final_product_b64 = None
@@ -208,7 +190,7 @@ async def ai_center_create(
                 "visualization_image"
             )
             if final_product_b64:
-                _save_image(final_product_b64, "ai_center_final")
+                logger.info("Final product generated for AI Center preview")
         else:
             logger.info("No product image available — saving design only")
 
@@ -276,6 +258,15 @@ async def ai_center_approve(
 
     if ai_center.status == "approved":
         raise HTTPException(status_code=400, detail="Design already approved")
+
+    # Upload only confirmed/approved designs to cloud storage.
+    confirmed_image = ai_center.final_product or ai_center.design_from_gemini
+    cloud_url = upload_base64_image(
+        confirmed_image,
+        f"ai_center_confirmed_{ai_center.id}",
+    )
+    if cloud_url:
+        ai_center.final_product = cloud_url
 
     # Update status
     ai_center.status = "approved"
@@ -360,8 +351,8 @@ async def ai_center_get(
 
 @app.get("/ai-center/", response_model=list[AICenterResponse])
 async def ai_center_list(
-    user_id: int | None = None,
     session: Annotated[Session, Depends(get_session)],
+    user_id: int | None = None,
 ):
     """List all AI Center records."""
     statement = select(AICenter)

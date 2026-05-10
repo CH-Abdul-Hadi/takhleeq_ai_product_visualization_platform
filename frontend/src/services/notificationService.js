@@ -14,11 +14,21 @@ export const notificationService = {
     }
   },
 
+  sendContactMessage: async (payload) => {
+    try {
+      const response = await notificationApi.post('/contact', payload);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to send contact message:", error);
+      throw error;
+    }
+  },
+
   /**
    * Get notifications for current user.
    * Falls back to service root message when dedicated endpoint is unavailable.
    */
-  getNotifications: async () => {
+  getNotifications: async (userEmail) => {
     const normalize = (payload) => {
       if (!payload) return [];
       if (Array.isArray(payload)) return payload;
@@ -28,12 +38,13 @@ export const notificationService = {
     };
 
     const endpointCandidates = ["/get_notification", "/notifications", "/notification"];
+    const requestConfig = userEmail ? { params: { user_email: userEmail } } : undefined;
 
     for (const endpoint of endpointCandidates) {
       try {
-        const response = await notificationApi.get(endpoint);
+        const response = await notificationApi.get(endpoint, requestConfig);
         const items = normalize(response.data);
-        if (items.length > 0) return items;
+        return items;
       } catch (error) {
         const status = error?.response?.status;
         if (status !== 404) {

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Download, Check, X, Loader2 } from "lucide-react";
+import { Download, Check, X, Loader2, ShoppingCart } from "lucide-react";
 import { aiDesignService } from "../../services/aiDesignService";
+import { productService } from "../../services/productService";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useCart } from "../../hooks/useCart";
 
 const getBase64Src = (b64String) => {
   if (!b64String) return null;
-  if (b64String.startsWith("data:")) return b64String;
+  if (b64String.startsWith("data:") || b64String.startsWith("http")) return b64String;
   return `data:image/png;base64,${b64String}`;
 };
 
@@ -26,13 +28,18 @@ const StatusBadge = ({ status }) => {
 
 const MyDesignsPage = () => {
   const user = useSelector((state) => state.auth.user);
+  const { addToCart } = useCart();
   const [myDesigns, setMyDesigns] = useState([]);
+  const [productsById, setProductsById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // id of design being actioned
+  const [cartLoading, setCartLoading] = useState(null);
+  const [addedDesignId, setAddedDesignId] = useState(null);
 
   useEffect(() => {
     fetchDesigns();
+    fetchProducts();
   }, [user?.id]);
 
   const fetchDesigns = async () => {
@@ -50,6 +57,20 @@ const MyDesignsPage = () => {
       setError("Failed to load your designs. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const products = await productService.getAllProducts();
+      const nextProductsById = {};
+      (Array.isArray(products) ? products : []).forEach((product) => {
+        nextProductsById[product.product_id] = product;
+      });
+      setProductsById(nextProductsById);
+    } catch (err) {
+      console.warn("Failed to fetch products for design cart details", err);
+      setProductsById({});
     }
   };
 
@@ -84,6 +105,35 @@ const MyDesignsPage = () => {
     link.href = src;
     link.download = `design-${design.id}.png`;
     link.click();
+  };
+
+  const handleAddToCart = async (design) => {
+    const imageSrc = getBase64Src(design.final_product || design.design_from_gemini);
+    if (!design.product_id || !imageSrc) return;
+
+    const product = productsById[design.product_id];
+    setCartLoading(design.id);
+    try {
+      const added = await addToCart({
+        id: `design-${design.id}`,
+        productId: design.product_id,
+        designId: design.id,
+        name: `${product?.Product_name || "Custom Product"} - Custom Design`,
+        price: Number(product?.price || 0),
+        image: imageSrc,
+        customProductName: `${product?.Product_name || "Custom Product"} - Custom Design`,
+        customProductImage: imageSrc,
+        aiCollection: "AI Design Lab",
+        material: "Custom Design",
+        size: "Custom",
+      });
+      if (added) {
+        setAddedDesignId(design.id);
+        window.setTimeout(() => setAddedDesignId(null), 2000);
+      }
+    } finally {
+      setCartLoading(null);
+    }
   };
 
   return (
@@ -126,6 +176,9 @@ const MyDesignsPage = () => {
               const imageSrc = getBase64Src(design.final_product || design.design_from_gemini);
               const designId = design.id;
               const isActioning = actionLoading === designId;
+              const isAddingToCart = cartLoading === designId;
+              const isAddedToCart = addedDesignId === designId;
+              const canAddToCart = design.status === "approved" && !!design.product_id && !!imageSrc;
 
               return (
                 <div
@@ -196,6 +249,20 @@ const MyDesignsPage = () => {
                     <div className="flex justify-between items-center text-fontSizeSm text-textColorMuted mt-2">
                       <span>Product #{design.product_id}</span>
                     </div>
+                    <button
+                      onClick={() => handleAddToCart(design)}
+                      disabled={!canAddToCart || isAddingToCart}
+                      className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primaryColor px-4 py-2.5 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isAddingToCart ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : isAddedToCart ? (
+                        <Check size={16} />
+                      ) : (
+                        <ShoppingCart size={16} />
+                      )}
+                      {isAddedToCart ? "Added to Cart" : "Add to Cart"}
+                    </button>
                   </div>
                 </div>
               );

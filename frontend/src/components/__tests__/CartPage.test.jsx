@@ -112,13 +112,11 @@ describe('CartPage', () => {
       });
     });
 
-    it('alerts if user is not logged in', () => {
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    it('does not checkout if user is not logged in', () => {
       const store = makeStore(null, [cartItem]); // no user
       renderPage(store);
       fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
-      expect(alertSpy).toHaveBeenCalledWith('Please login to checkout');
-      alertSpy.mockRestore();
+      expect(orderService.createOrder).not.toHaveBeenCalled();
     });
   });
 });
