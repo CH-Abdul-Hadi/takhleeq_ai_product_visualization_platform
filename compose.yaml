@@ -147,7 +147,7 @@ services:
     env_file:
       - .env
     environment:
-      - TAKHLEEQ_AI_CHATBOT_GEMINI_API_KEY=${TAKHLEEQ_AI_CHATBOT_GEMINI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
     restart: on-failure
 

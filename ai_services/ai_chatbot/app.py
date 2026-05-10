@@ -13,10 +13,6 @@ from chatbot import SESSIONS_DB, stream_agent_response
 from agents import SQLiteSession
 
 
-# ---------------------------------------------------------------------------
-# App setup
-# ---------------------------------------------------------------------------
-
 app = FastAPI(
     title="Takhleeq AI Chatbot",
     description="Chat endpoint for the Takhleeq AI Assistant with RAG.",
