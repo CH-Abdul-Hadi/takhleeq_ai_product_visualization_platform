@@ -114,7 +114,7 @@ const StudioPage = () => {
 
   const getDesignImageSrc = (b64) => {
     if (!b64) return null;
-    if (b64.startsWith("data:")) return b64;
+    if (b64.startsWith("data:") || b64.startsWith("http")) return b64;
     return `data:image/png;base64,${b64}`;
   };
 

@@ -1,11 +1,11 @@
-import smtplib , logging , asyncio
+import smtplib , logging
 from email.mime.text import MIMEText
 from fastapi import HTTPException
 from . import setting
+from .notification_store import record_email_notification
 
 
 
-loop = asyncio.get_event_loop()
 logging.basicConfig(level=logging.INFO)
 
 
@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 async def send_email(user_email : str , body : str , subject : str):
     try:
+        record_email_notification(user_email=user_email, subject=subject, body=body)
         sender_email = setting.SENDER_EMAIL
         sender_password = setting.SENDER_PASSWORD
         

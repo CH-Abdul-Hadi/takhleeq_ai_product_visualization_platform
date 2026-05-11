@@ -4,6 +4,7 @@ import { useCart } from "../../hooks/useCart";
 import ProductCard from "../ui/ProductCard";
 import ProductCardSkeleton from "../ui/ProductCardSkeleton";
 import { productService } from "../../services/productService";
+import { aiDesignService } from "../../services/aiDesignService";
 
 const FALLBACK_PRODUCTS = [
   {
@@ -34,9 +35,15 @@ const FALLBACK_PRODUCTS = [
 
 const PRODUCTS_BASE_URL = import.meta.env.VITE_PRODUCTS_API_URL || 'http://localhost:8000';
 
+const getBase64Src = (b64String) => {
+  if (!b64String) return "";
+  if (b64String.startsWith("data:") || b64String.startsWith("http")) return b64String;
+  return `data:image/png;base64,${b64String}`;
+};
+
 const getProductImageUrl = (product) => {
   if (product.product_image) {
-    return `data:image/png;base64,${product.product_image}`;
+    return getBase64Src(product.product_image);
   }
   return `${PRODUCTS_BASE_URL}/product/${product.product_id}/image`;
 };
@@ -48,6 +55,9 @@ const getProductDescription = (product) =>
   product?.Product_details ?? product?.product_details ?? product?.description ?? "No description available.";
 const getProductPrice = (product) => Number(product?.price ?? product?.Price ?? 0);
 const getProductCategory = (product) => product?.category ?? product?.Category ?? "";
+const isCustomDesign = (product) => product?.itemType === "custom-design";
+const getCatalogItemKey = (product) =>
+  isCustomDesign(product) ? product.id : getProductId(product);
 
 const CategoriesPage = () => {
   const { addToCart } = useCart();
@@ -61,15 +71,46 @@ const CategoriesPage = () => {
     const fetchProducts = async () => {
       try {
         setError(null);
-        const data = await productService.getAllProducts();
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data);
+        const [productsData, designsData] = await Promise.all([
+          productService.getAllProducts(),
+          aiDesignService.getAllAICenterRecords(),
+        ]);
+        const baseProducts = Array.isArray(productsData) ? productsData : [];
+        const productsById = baseProducts.reduce((acc, product) => {
+          const productId = getProductId(product);
+          if (productId) {
+            acc[productId] = product;
+          }
+          return acc;
+        }, {});
+        const publicDesigns = (Array.isArray(designsData) ? designsData : [])
+          .filter((design) => design.status === "approved" && (design.final_product || design.design_from_gemini))
+          .map((design) => {
+            const baseProduct = productsById[design.product_id];
+            return {
+              ...design,
+              itemType: "custom-design",
+              id: `custom-design-${design.id}`,
+              product_id: design.product_id,
+              design_id: design.id,
+              Product_name: `${baseProduct?.Product_name || "Custom Product"} - AI Design`,
+              Product_details: design.user_idea || "Custom AI generated design.",
+              price: Number(baseProduct?.price || 0),
+              category: "AI Designs",
+              product_image: design.final_product || design.design_from_gemini,
+            };
+          });
+
+        const catalogItems = [...publicDesigns, ...baseProducts];
+        if (catalogItems.length > 0) {
+          setProducts(catalogItems);
         } else {
-          setProducts(FALLBACK_PRODUCTS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn("Using fallback products due to API fetch error.", err);
-        setProducts(FALLBACK_PRODUCTS);
+        console.warn("Failed to load products.", err);
+        setError("Failed to load products. Please try again.");
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -79,11 +120,17 @@ const CategoriesPage = () => {
 
   const handleAddToCart = (product) => {
     const productId = getProductId(product);
+    const image = getProductImageUrl(product);
     addToCart({
-      id: productId,
+      id: isCustomDesign(product) ? product.id : productId,
+      productId,
+      designId: product.design_id,
       name: getProductName(product),
       price: getProductPrice(product),
-      image: getProductImageUrl(product),
+      image,
+      customProductName: isCustomDesign(product) ? getProductName(product) : undefined,
+      customProductImage: isCustomDesign(product) ? image : undefined,
+      aiCollection: isCustomDesign(product) ? "AI Design Lab" : undefined,
       quantity: 1,
     });
   };
@@ -187,17 +234,24 @@ const CategoriesPage = () => {
             ) : filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
                 <ProductCard
-                  key={getProductId(product)}
+                  key={getCatalogItemKey(product)}
                   image={getProductImageUrl(product)}
                   title={getProductName(product)}
                   tags={getProductCategory(product) ? [getProductCategory(product)] : ["Featured"]}
                   description={getProductDescription(product)}
                   price={getProductPrice(product)}
-                  onViewDetails={() => navigate(`/products/${getProductId(product)}`)}
-                  onOpenStudio={() =>
-                    navigate(`/studio?product=${getProductId(product)}`, {
-                      state: { selectedProductId: getProductId(product) },
-                    })
+                  onViewDetails={
+                    isCustomDesign(product)
+                      ? undefined
+                      : () => navigate(`/products/${getProductId(product)}`)
+                  }
+                  onOpenStudio={
+                    isCustomDesign(product)
+                      ? undefined
+                      : () =>
+                          navigate(`/studio?product=${getProductId(product)}`, {
+                            state: { selectedProductId: getProductId(product) },
+                          })
                   }
                   onAddToCart={() => handleAddToCart(product)}
                 />

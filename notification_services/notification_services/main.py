@@ -1,16 +1,28 @@
 from contextlib import asynccontextmanager
-from typing import  AsyncGenerator
-from fastapi import  FastAPI
+from typing import  AsyncGenerator, Optional
+from fastapi import  FastAPI, Query
+from pydantic import BaseModel
 from sqlmodel import  Session
 # from .database import engine , create_db_and_tables
 # from .email_services import send_email
 import asyncio , logging
 from . import setting
 from .Consumer import kafka_user_consumer , kafka_order_consumer , kafka_payment_consumer
+from .email_services import send_email
+from .notification_store import get_notifications
 from fastapi.middleware.cors import CORSMiddleware
 
-loop = asyncio.get_event_loop()
 logging.basicConfig(level=logging.INFO)
+
+CONTACT_RECIPIENT_EMAIL = "hasaanqurashi150@gmail.com"
+
+
+class ContactMessage(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    subject: str
+    message: str
 
 
 @asynccontextmanager
@@ -28,7 +40,7 @@ async def lifespan(app : FastAPI)->AsyncGenerator[None,None]:
         logging.info("Shutting down Kafka consumers...")
         
         # Cancel tasks gracefully
-        for task in [task1, task2]:
+        for task in [task1, task2, task3]:
             task.cancel()
             try:
                 await task
@@ -76,8 +88,32 @@ def get_root():
     return{"message" : "Welcome To Notification Service..."}
 
 
-# @app.get("/get_notification")
-# def 
+@app.get("/get_notification")
+def get_notification(user_email: Optional[str] = Query(default=None)):
+    return {"notifications": get_notifications(user_email)}
+
+
+@app.get("/notifications")
+def list_notifications(user_email: Optional[str] = Query(default=None)):
+    return {"notifications": get_notifications(user_email)}
+
+
+@app.post("/contact")
+async def send_contact_message(payload: ContactMessage):
+    subject = f"Contact Form: {payload.subject}"
+    body = (
+        "New contact form message received.\n\n"
+        f"Name: {payload.first_name} {payload.last_name}\n"
+        f"Email: {payload.email}\n"
+        f"Subject: {payload.subject}\n\n"
+        f"Message:\n{payload.message}"
+    )
+    await send_email(
+        user_email=CONTACT_RECIPIENT_EMAIL,
+        subject=subject,
+        body=body,
+    )
+    return {"message": "Contact message sent successfully."}
 
 # @app.on_event("startup")
 # async def startup_event():

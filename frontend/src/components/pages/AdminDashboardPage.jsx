@@ -18,6 +18,14 @@ const getProductImageUrl = (product) => {
   return "";
 };
 
+const getOrderCustomImageUrl = (order) => {
+  if (!order?.custom_product_image) return "";
+  if (order.custom_product_image.startsWith("data:")) {
+    return order.custom_product_image;
+  }
+  return `data:image/png;base64,${order.custom_product_image}`;
+};
+
 const StatCard = ({ label, value }) => (
   <div className="rounded-borderRadiusLg border border-borderColor bg-surfaceColor p-4">
     <p className="text-textColorMuted text-sm">{label}</p>
@@ -125,6 +133,17 @@ const AdminDashboardPage = () => {
         (sum, item) => sum + Number(item?.product_quantity || 0),
         0
       ),
+    [products]
+  );
+
+  const productsById = useMemo(
+    () =>
+      products.reduce((acc, product) => {
+        if (product?.product_id) {
+          acc[product.product_id] = product;
+        }
+        return acc;
+      }, {}),
     [products]
   );
 
@@ -374,56 +393,83 @@ const AdminDashboardPage = () => {
                   Orders (Update/Delete)
                 </h2>
                 <div className="space-y-2">
-                  {orders.slice(0, 6).map((order, idx) => (
-                    <div
-                      key={order.order_id || idx}
-                      className="flex items-center justify-between border border-borderColor/60 rounded-borderRadiusMd px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-textColorMain text-sm">
-                          Order #{order.order_id || "N/A"}
-                        </p>
-                        <p className="text-textColorMuted text-xs">
-                          Product: {order.product_id || "N/A"} | Qty:{" "}
-                          {order.product_quantity || 0}
-                        </p>
+                  {orders.slice(0, 6).map((order, idx) => {
+                    const product = productsById[order.product_id];
+                    const productName =
+                      order.custom_product_name ||
+                      product?.Product_name ||
+                      `Product ${order.product_id || "N/A"}`;
+                    const orderImage = getOrderCustomImageUrl(order);
+
+                    return (
+                      <div
+                        key={order.order_id || idx}
+                        className="flex flex-wrap items-center justify-between gap-3 border border-borderColor/60 rounded-borderRadiusMd px-3 py-2"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {orderImage || product ? (
+                            <img
+                              src={orderImage || getProductImageUrl(product)}
+                              alt={productName}
+                              className="h-12 w-12 rounded-md object-cover border border-borderColor bg-backgroundColor shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-md border border-borderColor bg-backgroundColor shrink-0" />
+                          )}
+                          <div>
+                            <p className="text-textColorMain text-sm">
+                              Order #{order.order_id || "N/A"}
+                            </p>
+                            <p className="text-textColorMuted text-xs">
+                              {productName} | Qty: {order.product_quantity || 0}
+                            </p>
+                            {order.custom_design_id && (
+                              <p className="text-primaryColor text-xs">
+                                Custom design #{order.custom_design_id}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={
+                              orderStatusEdits[order.order_id] ||
+                              order.payment_status ||
+                              "Pending"
+                            }
+                            onChange={(e) =>
+                              setOrderStatusEdits((prev) => ({
+                                ...prev,
+                                [order.order_id]: e.target.value,
+                              }))
+                            }
+                            className="text-xs bg-backgroundColor border border-borderColor rounded px-2 py-1"
+                          >
+                            <option>Pending</option>
+                            <option>Completed</option>
+                            <option>Failed</option>
+                          </select>
+                          <button
+                            onClick={() => handleUpdateOrderStatus(order)}
+                            disabled={busyKey === `order-update-${order.order_id}`}
+                            className="text-xs px-2 py-1 rounded border border-primaryColor/50 text-primaryColor hover:bg-primaryColor/10 disabled:opacity-50"
+                          >
+                            Update
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order.order_id)}
+                            disabled={busyKey === `order-delete-${order.order_id}`}
+                            className="text-xs px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={
-                            orderStatusEdits[order.order_id] ||
-                            order.payment_status ||
-                            "Pending"
-                          }
-                          onChange={(e) =>
-                            setOrderStatusEdits((prev) => ({
-                              ...prev,
-                              [order.order_id]: e.target.value,
-                            }))
-                          }
-                          className="text-xs bg-backgroundColor border border-borderColor rounded px-2 py-1"
-                        >
-                          <option>Pending</option>
-                          <option>Completed</option>
-                          <option>Failed</option>
-                        </select>
-                        <button
-                          onClick={() => handleUpdateOrderStatus(order)}
-                          disabled={busyKey === `order-update-${order.order_id}`}
-                          className="text-xs px-2 py-1 rounded border border-primaryColor/50 text-primaryColor hover:bg-primaryColor/10 disabled:opacity-50"
-                        >
-                          Update
-                        </button>
-                        <button
-                          onClick={() => handleDeleteOrder(order.order_id)}
-                          disabled={busyKey === `order-delete-${order.order_id}`}
-                          className="text-xs px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {!orders.length && (
                     <p className="text-textColorMuted text-sm">No orders found.</p>
                   )}

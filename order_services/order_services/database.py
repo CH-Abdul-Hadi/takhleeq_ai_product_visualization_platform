@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field , create_engine , Session
+from sqlalchemy import text
 from . import setting
 from typing import Optional
 from pydantic import EmailStr 
@@ -12,6 +13,9 @@ class Order(SQLModel , table=True):
     product_quantity : int = Field(default=None)
     product_price: int = Field(default=None)
     payment_status : str = Field(default="Pending")
+    custom_design_id: Optional[int] = Field(default=None)
+    custom_product_name: Optional[str] = Field(default=None)
+    custom_product_image: Optional[str] = Field(default=None)
 
 
 
@@ -21,6 +25,9 @@ class Order_request(SQLModel):
     product_quantity : int
     total_amount : int
     product_price: int = Field(default=None)
+    custom_design_id: Optional[int] = Field(default=None)
+    custom_product_name: Optional[str] = Field(default=None)
+    custom_product_image: Optional[str] = Field(default=None)
 
 class OrderResponse(SQLModel):
     order_id : int
@@ -30,6 +37,9 @@ class OrderResponse(SQLModel):
     product_quantity : int
     product_price: int = Field(default=None)
     payment_status : str
+    custom_design_id: Optional[int] = Field(default=None)
+    custom_product_name: Optional[str] = Field(default=None)
+    custom_product_image: Optional[str] = Field(default=None)
 
 
 class User(SQLModel):
@@ -53,6 +63,10 @@ engine =create_engine(connection_string , connect_args={} , pool_recycle=300)
 
 def create_db_and_tables()->None:
     SQLModel.metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE \"order\" ADD COLUMN IF NOT EXISTS custom_design_id INTEGER"))
+        conn.execute(text("ALTER TABLE \"order\" ADD COLUMN IF NOT EXISTS custom_product_name VARCHAR"))
+        conn.execute(text("ALTER TABLE \"order\" ADD COLUMN IF NOT EXISTS custom_product_image TEXT"))
 
 
 

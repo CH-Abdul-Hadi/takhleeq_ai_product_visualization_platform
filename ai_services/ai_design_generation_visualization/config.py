@@ -37,3 +37,8 @@ KAFKA_CONSUMER_GROUP_ID: str = os.getenv("KAFKA_CONSUMER_GROUP_ID")
 
 # --- Database ---
 AI_CENTER_DATABASE_URL: str = os.getenv("AI_CENTER_DATABASE_URL")
+
+# --- Cloud image storage (same provider/path as product service) ---
+CLOUDINARY_CLOUD_NAME: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY: str = os.getenv("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET: str = os.getenv("CLOUDINARY_API_SECRET", "")

@@ -6,7 +6,6 @@ from ..email_services import send_email
 import json
 import os
 
-loop = asyncio.get_event_loop()
 logging.basicConfig(level=logging.INFO)
 
 
