@@ -130,17 +130,22 @@ async def ai_center_create(
                 "Fetching product image for product_id=%d from Product Service",
                 request.product_id,
             )
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"http://product_services:8000/product/{request.product_id}/image"
-                )
-                if resp.status_code == 200:
-                    product_image_b64 = resp.json().get("product_image")
-                    logger.info("Product image fetched successfully")
-                else:
-                    logger.warning(
-                        "Product has no image uploaded (status=%d)", resp.status_code
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.get(
+                        f"http://product_services:8000/product/{request.product_id}/image"
                     )
+                    if resp.status_code == 200:
+                        product_image_b64 = resp.json().get("product_image")
+                        logger.info("Product image fetched successfully")
+                    else:
+                        logger.warning(
+                            "Product Service returned status %d for product_id=%d", 
+                            resp.status_code, request.product_id
+                        )
+            except (httpx.TimeoutException, httpx.RequestError) as e:
+                logger.warning("Failed to fetch product image from Product Service: %s", str(e))
+                # Continue without product image (will save design only)
 
         # Check for integration test
         if request.user_idea == "Test floral pattern design" and request.product_id == 999:
@@ -167,13 +172,17 @@ async def ai_center_create(
                 status=ai_center.status,
             )
 
-        # Step 2: Generate the design
-        logger.info("Generating design for idea: '%s'", request.user_idea[:50])
-        design_result = await run_design_only(
-            prompt=request.user_idea,
-            reference_image_b64=None,
-        )
-        design_image_b64 = design_result["design_image"]
+        # Step 2: Obtain or generate the design
+        if request.design_image:
+            logger.info("Using provided design_image (skipping generation)")
+            design_image_b64 = request.design_image
+        else:
+            logger.info("Generating design for idea: '%s'", request.user_idea[:50])
+            design_result = await run_design_only(
+                prompt=request.user_idea,
+                reference_image_b64=request.reference_image,
+            )
+            design_image_b64 = design_result["design_image"]
 
         # Step 3: Apply design to product (if we have a product image)
         final_product_b64 = None
@@ -220,8 +229,10 @@ async def ai_center_create(
         )
 
     except Exception as exc:
+        import traceback
         error_msg = str(exc)
         logger.error("AI Center create failed: %s", error_msg)
+        traceback.print_exc()
         
         # Handle OpenRouter/Gemini safety filter errors
         if "'tuple' object has no attribute 'choices'" in error_msg or "filtered" in error_msg.lower():

@@ -87,7 +87,7 @@ const LandingPage = () => {
 
   return (
     <>
-      <HeroSection />
+      <HeroSection onStartCreating={() => navigate("/studio")} />
       <div className="flex flex-col w-full pb-paddingLarge bg-backgroundColor">
         {/* Section 1: Pre-made Designs (commented: static/non-backend section) */}
         {/*

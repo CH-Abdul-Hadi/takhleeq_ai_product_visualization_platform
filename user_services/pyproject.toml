@@ -24,4 +24,5 @@ dependencies = [
     "requests>=2.31.0",
     "confluent-kafka>=2.13.2",
     "python-dotenv==1.0.1",
+    "httpx>=0.28.1",
 ]

@@ -19,6 +19,11 @@ from openai import AsyncOpenAI
 from agents import Agent, Runner, function_tool, set_tracing_disabled
 from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 from google import genai
+import re
+from dataclasses import dataclass
+import random
+import urllib.parse
+import aiohttp
 import config
 
 # Disable tracing (no direct OpenAI key for trace uploading)
@@ -75,13 +80,8 @@ async def generate_image_via_gemini(prompt: str, image_b64: str | None = None) -
     Returns:
         Base64-encoded image string, or None.
     """
-    import aiohttp
-    import urllib.parse
-    
-    print(f"DEBUG: Using Pollinations.ai for image generation (No API Key Required)")
     try:
         # We append a random seed so it generates a fresh image even for identical prompts
-        import random
         seed = random.randint(1, 9999999)
         encoded_prompt = urllib.parse.quote(prompt)
         url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true&seed={seed}"
@@ -90,7 +90,6 @@ async def generate_image_via_gemini(prompt: str, image_b64: str | None = None) -
             async with session.get(url) as resp:
                 if resp.status == 200:
                     image_bytes = await resp.read()
-                    import base64
                     return base64.b64encode(image_bytes).decode('utf-8')
                 else:
                     print(f"Pollinations Error: Status {resp.status}")
@@ -211,7 +210,6 @@ async def generate_design(prompt: str, reference_image: str | None = None):
             raise RuntimeError(f"Both Gemini Agent and Pollinations Fallback failed: {exc}")
             
         # Mock a RunResult-like object so the coordinator doesn't break
-        from dataclasses import dataclass
         @dataclass
         class MockToolOutput:
             output: str
@@ -238,7 +236,7 @@ if __name__ == "__main__":
         result = await generate_design(prompt=prompt)
 
         # Find IMAGE_GENERATED reference in the result
-        ref_pattern = _re.compile(r"IMAGE_GENERATED:([a-f0-9]{8})")
+        ref_pattern = re.compile(r"IMAGE_GENERATED:([a-f0-9]{8})")
         b64_data = None
 
         for item in result.new_items:
