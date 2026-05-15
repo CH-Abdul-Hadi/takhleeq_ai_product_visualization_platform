@@ -241,12 +241,12 @@ async def _get_optimal_placement_ratios(product_image_b64: str, product_type: st
             "IMPORTANT: The design should be ELEGANT and SMALL (not covering the whole product). "
             "For apparel, a width_ratio between 0.12 and 0.15 is ideal. "
             "Return ONLY a JSON object with: "
-            "'width_ratio' (0.10 to 0.20), 'center_x_ratio' (usually 0.5), and 'center_y_ratio' (usually 0.45-0.50 for chest area). "
-            "Example for a hoodie: {'width_ratio': 0.12, 'center_x_ratio': 0.5, 'center_y_ratio': 0.48}"
+            "'width_ratio' (0.10 to 0.20), 'center_x_ratio' (usually 0.5), and 'center_y_ratio' (usually 0.50-0.55 for center/chest). "
+            "Example for a hoodie: {'width_ratio': 0.12, 'center_x_ratio': 0.5, 'center_y_ratio': 0.52}"
         )
         
         response = await external_client.chat.completions.create(
-            model="gemini-1.5-flash",
+            model="gemini-1.5-flash-latest",
             messages=[
                 {
                     "role": "user",
@@ -264,7 +264,7 @@ async def _get_optimal_placement_ratios(product_image_b64: str, product_type: st
         return ratios
     except Exception as e:
         logger.warning("AI Placement analysis failed, using fallback: %s", e)
-        return {"width_ratio": 0.12, "center_x_ratio": 0.5, "center_y_ratio": 0.48}
+        return {"width_ratio": 0.12, "center_x_ratio": 0.5, "center_y_ratio": 0.52}
 
 async def _apply_design_with_pollinations(
     *,
@@ -282,7 +282,7 @@ async def _apply_design_with_pollinations(
         product_image_b64=product_image_b64,
         design_image_b64=design_image_b64,
         width_ratio=ratios.get("width_ratio", 0.12),
-        center_y_ratio=ratios.get("center_y_ratio", 0.48),
+        center_y_ratio=ratios.get("center_y_ratio", 0.52),
     )
 
 

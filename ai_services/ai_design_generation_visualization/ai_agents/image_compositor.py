@@ -67,7 +67,7 @@ def blend_design_onto_product(
     design_image_b64: str,
     *,
     width_ratio: float = 0.12,
-    center_y_ratio: float = 0.48,
+    center_y_ratio: float = 0.52,
 ) -> str:
     """Vectorized alpha blending with high-quality resizing."""
     product = _decode_image(product_image_b64)
