@@ -8,6 +8,8 @@ import {
   Loader2,
   Sparkles,
   X,
+  Upload,
+  Edit2,
 } from "lucide-react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { aiDesignService } from "../../services/aiDesignService";
@@ -84,6 +86,9 @@ const StudioPage = () => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [uploadedDesign, setUploadedDesign] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [referenceDesign, setReferenceDesign] = useState(null);
   const preselectedProductId = useMemo(
     () =>
       Number(searchParams.get("product")) ||
@@ -144,7 +149,9 @@ const StudioPage = () => {
   }, [products, productSearch]);
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || !selectedProduct) return;
+    // Basic validation: need either a prompt OR an uploaded design
+    if ((!prompt.trim() && !uploadedDesign) || !selectedProduct) return;
+    
     if (!user?.id) {
       setStatusMessage({
         type: "error",
@@ -154,18 +161,30 @@ const StudioPage = () => {
     }
     setIsGenerating(true);
     setStatusMessage(null);
-    setGeneratedDesign(null);
+    // Only clear generated design if we are NOT in edit/refine mode
+    if (!isEditMode) {
+      setGeneratedDesign(null);
+    }
 
     try {
       const requestPayload = {
         user_id: user.id,
-        user_idea: prompt,
+        user_idea: prompt || "Use uploaded design",
         product_id: selectedProduct.product_id,
         product_type: productType || "t-shirt",
         product_color: productColor || "black",
+        // Send product image if we have it locally to avoid extra backend hop
+        product_image: selectedProduct.product_image || null,
+        // If we have an uploaded design and no prompt, use it directly
+        design_image: (uploadedDesign && !prompt.trim()) ? uploadedDesign : null,
+        // If we are in edit mode or have an uploaded design WITH a prompt, use as reference
+        reference_image: isEditMode ? referenceDesign : uploadedDesign,
       };
+      
       const result = await aiDesignService.createAICenterDesign(requestPayload);
       setGeneratedDesign(result);
+      setIsEditMode(false); // Reset edit mode after successful generation
+      setUploadedDesign(null); // Clear upload after use
       setStatusMessage({ type: "success", text: "Design generated successfully." });
     } catch (error) {
       console.error("Failed to generate design", error);
@@ -177,6 +196,25 @@ const StudioPage = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedDesign(reader.result.split(",")[1]); // Base64 without prefix
+      setStatusMessage({ type: "success", text: "Design image uploaded. Click 'Refine' to apply it." });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleEnterEditMode = () => {
+    if (!generatedDesign) return;
+    setIsEditMode(true);
+    setReferenceDesign(generatedDesign.design_from_gemini);
+    setPrompt(""); // Clear prompt for new instructions
+    setStatusMessage({ type: "success", text: "Edit Mode: Describe the changes you want to make." });
   };
 
   const handleConfirmDesign = async () => {
@@ -306,21 +344,41 @@ const StudioPage = () => {
 
             <div className="mt-4">
               <label className="block text-sm text-textColorMuted mb-2">
-                Design Prompt
+                {isEditMode ? "Describe changes for your design" : "Design Prompt or Upload Design"}
               </label>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="flex-1 bg-backgroundColor border border-borderColor rounded-borderRadiusMd px-3 py-2"
-                  placeholder="Add prompt for your design..."
+                  className={`flex-1 bg-backgroundColor border rounded-borderRadiusMd px-3 py-2 ${isEditMode ? "border-primaryColor shadow-[0_0_10px_rgba(var(--primaryColorRgb),0.2)]" : "border-borderColor"}`}
+                  placeholder={isEditMode ? "e.g. Change color to red, add stars..." : "Add prompt for your design..."}
                 />
+                
+                {!isEditMode && (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="design-upload"
+                    />
+                    <label
+                      htmlFor="design-upload"
+                      className="cursor-pointer bg-backgroundColor border border-borderColor text-textColorMain px-4 py-2.5 rounded-lg hover:border-primaryColor transition inline-flex items-center gap-2"
+                    >
+                      <Upload size={16} />
+                      {uploadedDesign ? "Changed" : "Upload"}
+                    </label>
+                  </div>
+                )}
+
                 <button
                   onClick={handleGenerate}
                   disabled={
                     isGenerating ||
-                    !prompt.trim() ||
+                    (!prompt.trim() && !uploadedDesign) ||
                     !selectedProduct ||
                     productsLoading
                   }
@@ -329,12 +387,22 @@ const StudioPage = () => {
                   {isGenerating ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Generating...
+                      {isEditMode ? "Updating..." : "Generating..."}
                     </>
                   ) : (
-                    "Refine"
+                    isEditMode ? "Apply Changes" : (uploadedDesign && !prompt.trim() ? "Apply Design" : "Refine")
                   )}
                 </button>
+                
+                {isEditMode && (
+                  <button
+                    onClick={() => setIsEditMode(false)}
+                    className="p-2.5 rounded-lg border border-borderColor hover:bg-backgroundColor transition text-textColorMuted"
+                    title="Cancel Edit"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -357,6 +425,14 @@ const StudioPage = () => {
                   {" · "}Record ID: {generatedDesign.id}
                   {selectedProduct ? ` · Product: ${selectedProduct.Product_name}` : ""}
                 </p>
+                <button
+                  onClick={handleEnterEditMode}
+                  disabled={isGenerating}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border transition ${isEditMode ? "border-primaryColor bg-primaryColor/10 text-primaryColor" : "border-borderColor text-textColorMain hover:bg-black"}`}
+                >
+                  <Edit2 size={16} />
+                  Edit Design
+                </button>
                 <button
                   onClick={handleDownload}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-borderColor text-textColorMain hover:bg-black transition"

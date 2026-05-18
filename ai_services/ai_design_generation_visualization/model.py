@@ -145,6 +145,14 @@ class AICenterCreateRequest(BaseModel):
         default="white",
         description="Dominant color of the product.",
     )
+    reference_image: str | None = Field(
+        default=None,
+        description="Optional base64-encoded reference image for style guidance.",
+    )
+    design_image: str | None = Field(
+        default=None,
+        description="Optional base64-encoded design image to use directly (skips generation).",
+    )
 
 
 class AICenterResponse(BaseModel):

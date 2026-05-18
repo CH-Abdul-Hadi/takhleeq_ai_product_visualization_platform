@@ -163,10 +163,13 @@ services:
       - "8007:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AI_CENTER_DATABASE_URL=${AI_CENTER_DATABASE_URL}
       - KAFKA_BOOTSTRAP_SERVER=${KAFKA_BOOTSTRAP_SERVER}
       - KAFKA_DESIGN_TOPIC=${KAFKA_DESIGN_TOPIC}
       - KAFKA_PRODUCT_TOPIC=${KAFKA_PRODUCT_TOPIC}
       - KAFKA_CONSUMER_GROUP_ID=${KAFKA_CONSUMER_GROUP_ID}
+    env_file:
+      - .env
     restart: on-failure
 
   broker:

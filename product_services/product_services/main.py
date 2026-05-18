@@ -4,14 +4,11 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Annotated, AsyncGenerator, List, Optional
-
-
 from aiokafka import AIOKafkaProducer
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import select
 from fastapi.responses import RedirectResponse
-
 from . import setting
 from .authenticate import validate_role
 from .cloudinary_service import delete_image, upload_image
@@ -101,7 +98,7 @@ async def product_service(
             product_image_value = base64.b64encode(file_bytes).decode("utf-8")
 
     product = Product(
-        Product_id=Product_id,
+        product_id=Product_id,
         Product_name=Product_name,
         Product_details=Product_details,
         product_quantity=product_quantity,

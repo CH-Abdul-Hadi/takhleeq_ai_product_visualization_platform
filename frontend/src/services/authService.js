@@ -47,11 +47,13 @@ export const authService = {
   /**
    * Google OAuth authentication
    */
-  googleAuth: async (idToken) => {
+  googleAuth: async (token, isAccessToken = false) => {
     try {
-      const response = await usersApi.post("/auth/google", {
-        id_token: idToken,
-      });
+      const payload = isAccessToken 
+        ? { access_token: token } 
+        : { id_token: token };
+        
+      const response = await usersApi.post("/auth/google", payload);
       return response.data;
     } catch (error) {
       console.error("Google auth failed:", error);

@@ -1,10 +1,7 @@
-import asyncio
-import json
-import logging
+import asyncio, json , logging , httpx
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Annotated, AsyncGenerator, Dict, Optional
-
 from aiokafka import AIOKafkaProducer
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -175,17 +172,39 @@ async def google_auth(
             detail="Google authentication libraries are not installed on the server.",
         )
 
-    try:
-        print(f"Verifying Google token with client_id: {str(setting.GOOGLE_CLIENT_ID)}")
-        idinfo = google_id_token.verify_oauth2_token(
-            request.id_token,
-            google_requests.Request(),
-            str(setting.GOOGLE_CLIENT_ID),
-        )
-        print(f"Token verified successfully: {idinfo.get('email')}")
-    except ValueError as e:
-        print(f"Google token verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+    # Handle either ID Token (standard button) or Access Token (custom button)
+    idinfo = None
+    if request.id_token:
+        try:
+            print(f"Verifying Google ID token with client_id: {str(setting.GOOGLE_CLIENT_ID)}")
+            idinfo = google_id_token.verify_oauth2_token(
+                request.id_token,
+                google_requests.Request(),
+                str(setting.GOOGLE_CLIENT_ID),
+            )
+            print(f"ID Token verified successfully: {idinfo.get('email')}")
+        except ValueError as e:
+            print(f"Google ID token verification failed: {e}")
+            raise HTTPException(status_code=401, detail="Invalid Google ID token")
+    elif request.access_token:
+        try:
+            print("Verifying Google Access token via userinfo endpoint...")
+           
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {request.access_token}"}
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=401, detail="Invalid Google Access token")
+                idinfo = resp.json()
+                # userinfo endpoint uses 'sub' as the unique ID, just like id_token
+                print(f"Access Token verified successfully: {idinfo.get('email')}")
+        except Exception as e:
+            print(f"Google access token verification failed: {e}")
+            raise HTTPException(status_code=401, detail="Failed to verify Google access token")
+    else:
+        raise HTTPException(status_code=400, detail="Missing Google token")
 
     google_id = idinfo["sub"]
     email = idinfo.get("email", "")

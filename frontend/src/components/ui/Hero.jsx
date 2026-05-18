@@ -34,7 +34,7 @@ const CategoryCard = ({ image, title, subtitle, buttonText, className = "" }) =>
   </div>
 );
 
-const HeroSection = () => {
+const HeroSection = ({ onStartCreating }) => {
   return (
     <section className="bg-backgroundColor text-textColorMain w-full">
       {/* 1. Hero Header Section */}
@@ -47,7 +47,7 @@ const HeroSection = () => {
           />
           <div className="absolute inset-0 bg-backgroundColor/40 md:bg-transparent md:bg-gradient-to-r from-backgroundColor via-backgroundColor/80 to-transparent" />
         </div>
-
+ 
         <div className="relative z-10 px-paddingLarge md:px-paddingLarge lg:px-paddingLarge w-full max-w-[var(--maxWidthContainer)] mx-auto">
           <div className="max-w-2xl space-y-marginMedium text-center md:text-left flex flex-col items-center md:items-start">
             <h1 className="uppercase text-textColorMain">
@@ -57,7 +57,10 @@ const HeroSection = () => {
             <p className="text-fontSizeLg md:text-fontSizeXl text-textColorMuted font-fontWeightMedium">
               Takhleeq: The Home of Creation.
             </p>
-            <button className="bg-primaryColor text-textColorInverse font-fontWeightBold text-fontSizeSm md:text-fontSizeBase uppercase px-paddingLarge py-paddingMedium rounded-borderRadiusMd shadow-boxShadowMedium hover:scale-105 transition-transform duration-[var(--transitionDuration)]">
+            <button 
+              onClick={onStartCreating}
+              className="bg-primaryColor text-textColorInverse font-fontWeightBold text-fontSizeSm md:text-fontSizeBase uppercase px-paddingLarge py-paddingMedium rounded-borderRadiusMd shadow-boxShadowMedium hover:scale-105 transition-transform duration-[var(--transitionDuration)]"
+            >
               Start Creating Now
             </button>
           </div>

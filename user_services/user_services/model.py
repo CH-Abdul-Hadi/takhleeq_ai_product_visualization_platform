@@ -21,7 +21,8 @@ class CreateUser(SQLModel):
 
 
 class GoogleAuthRequest(SQLModel):
-    id_token: str
+    id_token: Optional[str] = None
+    access_token: Optional[str] = None
 
 
 class Token(SQLModel):
