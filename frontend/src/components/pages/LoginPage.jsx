@@ -212,6 +212,9 @@ const LoginPage = () => {
           </div>
 
           <div className="flex justify-center w-full">
+              <button>
+            <img src='/google_icon.png'/>
+            </button>
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleError}
